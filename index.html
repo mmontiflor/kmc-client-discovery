@@ -1,0 +1,2013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Client Discovery Form — KMC Technology Services</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Karla:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://alcdn.msauth.net/browser/2.38.2/js/msal-browser.min.js"></script>
+<style>
+  :root {
+    --navy: #001738;
+    --navy-mid: #0a2547;
+    --orange: #FF7200;
+    --blue: #FF7200;
+    --light-blue: #CEDDEF;
+    --light: #f2f5f9;
+    --border: #cdd5e0;
+    --text: #001738;
+    --muted: #5B6B7F;
+    --success: #16a34a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Karla', 'Segoe UI', system-ui, sans-serif; background: var(--light); color: var(--text); min-height: 100vh; }
+
+  /* Top nav */
+  nav {
+    background: var(--navy);
+    display: flex; align-items: center; gap: 0;
+    padding: 0 8px 0 32px;
+    border-bottom: 3px solid var(--orange);
+    position: sticky; top: 0; z-index: 500;
+  }
+  .nav-logo { color: white; font-size: 14px; font-weight: 700; padding: 14px 0; margin-right: 32px; letter-spacing: .5px; }
+  .nav-logo span { color: var(--orange); }
+  .nav-link {
+    color: rgba(255,255,255,.6); text-decoration: none;
+    font-size: 13px; font-weight: 500; padding: 16px 16px;
+    border-bottom: 3px solid transparent; margin-bottom: -3px;
+    transition: color .2s, border-color .2s;
+  }
+  .nav-link:hover { color: white; }
+  .nav-link.active { color: white; border-bottom-color: var(--orange); }
+
+  /* Page header */
+  .page-header {
+    background: white; border-bottom: 1px solid var(--border);
+    padding: 20px 32px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .page-header h1 { font-size: 20px; font-weight: 700; color: var(--navy); }
+  .page-header p { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .header-actions { display: flex; gap: 10px; }
+
+  .btn {
+    padding: 8px 18px; border-radius: 6px; border: none;
+    font-family: 'Karla', sans-serif; font-size: 13px; font-weight: 700;
+    cursor: pointer; transition: opacity .15s, transform .1s;
+    text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn:hover { opacity: .88; }
+  .btn:active { transform: scale(.98); }
+  .btn-primary { background: var(--orange); color: white; }
+  .btn-secondary { background: white; color: var(--navy); border: 1.5px solid var(--border); }
+  .btn-navy { background: var(--navy); color: white; }
+  .btn-outline { background: transparent; color: white; border: 1.5px solid rgba(255,255,255,.4); }
+  .btn-outline:hover { border-color: white; opacity: 1; }
+  .btn-sm { padding: 7px 13px; font-size: 13px; }
+
+  /* Layout */
+  .layout { display: flex; max-width: 1400px; margin: 0 auto; padding: 20px 16px; gap: 20px; }
+  .sidebar { width: 220px; flex-shrink: 0; }
+  .main { flex: 1; min-width: 0; }
+
+  /* Sidebar nav */
+  .sidebar-nav { background: white; border-radius: 10px; border: 1px solid var(--border); overflow: hidden; position: sticky; top: 72px; display: flex; flex-direction: column; align-items: stretch; }
+  .sidebar-header { padding: 11px 14px; font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: white; background: var(--navy); border-bottom: 3px solid var(--orange); }
+  .sidebar-nav a {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 14px; font-size: 14px; color: var(--muted);
+    text-decoration: none; border-left: 3px solid transparent;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  .sidebar-nav a:hover { background: var(--light); color: var(--navy); }
+  .sidebar-nav a.active { background: #fff5ee; color: var(--orange); border-left-color: var(--orange); font-weight: 600; }
+
+  /* Form sections */
+  .form-section {
+    background: white; border-radius: 10px; border: 1px solid var(--border);
+    margin-bottom: 14px; overflow: hidden; scroll-margin-top: 16px;
+  }
+  .section-header {
+    padding: 12px 18px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-icon { font-size: 18px; }
+  .section-header h2 { font-family: 'Barlow Condensed', sans-serif; font-size: 19px; font-weight: 700; color: var(--navy); letter-spacing: .3px; }
+  .section-header p { font-size: 13px; color: var(--muted); margin-top: 1px; }
+  .section-body { padding: 16px 18px; }
+
+  .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .form-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .form-grid.cols-1 { grid-template-columns: 1fr; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group.span-2 { grid-column: span 2; }
+  .form-group.span-3 { grid-column: 1/-1; }
+
+  label { font-size: 14px; font-weight: 600; color: var(--navy); }
+  label .optional { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 4px; }
+  input[type="text"], input[type="email"], input[type="tel"], input[type="number"],
+  select, textarea {
+    padding: 9px 12px; border: 1.5px solid var(--border); border-radius: 7px;
+    font-size: 15px; color: var(--text); background: white; width: 100%;
+    transition: border-color .2s, box-shadow .2s; font-family: inherit;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none; border-color: var(--orange);
+    box-shadow: 0 0 0 3px rgba(255,114,0,.1);
+  }
+  textarea { resize: vertical; min-height: 80px; }
+  textarea.tall { min-height: 120px; }
+
+  /* Tag input (for lists like ports, allowed/forbidden) */
+  .tag-input-wrap {
+    border: 1.5px solid var(--border); border-radius: 7px; padding: 6px 8px;
+    display: flex; flex-wrap: wrap; gap: 5px; min-height: 44px; cursor: text;
+    transition: border-color .2s, box-shadow .2s; background: white;
+  }
+  .tag-input-wrap:focus-within {
+    border-color: var(--orange); box-shadow: 0 0 0 3px rgba(255,114,0,.1);
+  }
+  .tag {
+    background: var(--light-blue); color: var(--navy); border-radius: 4px;
+    padding: 4px 9px; font-size: 13px; font-weight: 500;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .tag button { background: none; border: none; cursor: pointer; color: var(--navy); font-size: 15px; line-height: 1; padding: 0; }
+  .tag-real-input { border: none; outline: none; font-size: 15px; flex: 1; min-width: 120px; padding: 3px 4px; }
+
+  /* File upload */
+  .file-upload {
+    border: 2px dashed var(--border); border-radius: 8px; padding: 14px;
+    text-align: center; cursor: pointer; transition: border-color .2s, background .2s;
+    position: relative;
+  }
+  .file-upload:hover { border-color: var(--orange); background: #fff5ee; }
+  .file-upload input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .file-upload-icon { font-size: 22px; margin-bottom: 4px; }
+  .file-upload p { font-size: 14px; color: var(--muted); }
+  .file-upload strong { color: var(--orange); }
+  .file-upload .accepted { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .file-preview { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--light); border-radius: 6px; margin-top: 8px; font-size: 14px; }
+  .file-preview .fname { flex: 1; font-weight: 500; color: var(--navy); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-preview button { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 16px; }
+
+  /* Divider within section */
+  .sub-section { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border); }
+  .sub-section-title { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 12px; }
+
+  /* Progress indicator */
+  .progress-wrap { background: white; border-radius: 10px; border: 1px solid var(--border); padding: 10px 14px; margin-bottom: 12px; }
+  .progress-label { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .progress-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--orange); border-radius: 3px; transition: width .4s ease; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+    background: var(--success); color: white; padding: 14px 22px; border-radius: 8px;
+    font-size: 14px; font-weight: 500; box-shadow: 0 6px 20px rgba(0,0,0,.2);
+    opacity: 0; transition: opacity .3s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+  .toast.error { background: #dc2626; }
+
+  /* Form footer */
+  .form-footer {
+    background: white; border-top: 1px solid var(--border);
+    padding: 16px 24px; display: flex; justify-content: flex-end; gap: 12px;
+    position: sticky; bottom: 0; z-index: 10;
+  }
+
+  /* Completion check */
+  .check-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--border);
+    flex-shrink: 0; transition: background .3s;
+  }
+  .check-dot.done { background: var(--success); }
+
+  .checkbox-row { display:flex; align-items:center; gap:10px; }
+  .checkbox-row input[type="checkbox"] { width:18px; height:18px; accent-color:var(--orange); cursor:pointer; flex-shrink:0; }
+  .checkbox-row label { font-size:14px; font-weight:600; color:var(--navy); cursor:pointer; margin:0; }
+
+  .campaign-chip {
+    display: inline-block; padding: 6px 14px; border-radius: 20px;
+    border: 1.5px solid var(--border); background: white;
+    font-size: 13px; font-weight: 600; color: var(--muted);
+    cursor: pointer; user-select: none;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  .campaign-chip:hover { border-color: var(--orange); color: var(--navy); }
+  .campaign-chip.selected { background: #fff5ee; border-color: var(--orange); color: var(--orange); }
+
+  /* Profiles view */
+  .profiles-view { max-width: 1400px; margin: 0 auto; padding: 24px 20px; }
+  .profiles-toolbar {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 18px; flex-wrap: wrap;
+  }
+  .profiles-toolbar h2 { font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 700; color: var(--navy); flex: 1; }
+  .profiles-search {
+    padding: 8px 14px; border: 1.5px solid var(--border); border-radius: 7px;
+    font-size: 14px; width: 260px; font-family: inherit;
+  }
+  .profiles-search:focus { outline: none; border-color: var(--orange); box-shadow: 0 0 0 3px rgba(255,114,0,.1); }
+  .profiles-table-wrap { background: white; border-radius: 10px; border: 1px solid var(--border); }
+  .profiles-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .profiles-table th {
+    background: var(--navy); color: white; padding: 11px 14px;
+    text-align: left; font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px; font-weight: 700; letter-spacing: .5px; white-space: nowrap;
+  }
+  .profiles-table td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .profiles-table tr:last-child td { border-bottom: none; }
+  .profiles-table tr:hover td { background: #fafbfc; }
+  .profiles-table .company-name { font-weight: 700; color: var(--navy); }
+  .profiles-table .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 12px;
+    font-size: 12px; font-weight: 600;
+  }
+  .badge-vip { background: #fef9c3; color: #854d0e; }
+  .badge-existing { background: #dcfce7; color: #166534; }
+  .badge-new { background: var(--light-blue); color: var(--navy); }
+  .btn-view { background: none; border: 1.5px solid var(--border); border-radius: 6px; padding: 5px 12px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--navy); font-family: inherit; }
+  .btn-view:hover { border-color: var(--orange); color: var(--orange); }
+  .btn-del { background: none; border: none; cursor: pointer; color: #dc2626; font-size: 16px; padding: 4px; opacity: .6; }
+  .btn-del:hover { opacity: 1; }
+  .profiles-empty { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .profiles-empty p { font-size: 15px; margin-top: 8px; }
+
+  /* Detail modal */
+  .detail-modal-bg { display: none; position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,.5); align-items: flex-start; justify-content: center; padding: 40px 20px; overflow-y: auto; }
+  .detail-modal-bg.open { display: flex; }
+  .detail-modal { background: white; border-radius: 12px; width: 780px; max-width: 100%; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+  .detail-modal-header { background: var(--navy); padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; }
+  .detail-modal-header h3 { font-family: 'Barlow Condensed', sans-serif; color: white; font-size: 20px; font-weight: 700; }
+  .detail-modal-body { padding: 20px; max-height: 75vh; overflow-y: auto; }
+  .detail-group { margin-bottom: 18px; }
+  .detail-group h4 { font-family: 'Barlow Condensed', sans-serif; font-size: 14px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-bottom: 10px; }
+  .detail-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 20px; }
+  .detail-field label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 2px; }
+  .detail-field span { font-size: 14px; color: var(--navy); word-break: break-word; }
+  .detail-field.full { grid-column: 1/-1; }
+
+  /* Nav tabs */
+  .nav-tabs { display: flex; gap: 0; margin-left: 28px; }
+  .nav-tab {
+    color: rgba(255,255,255,.6); font-size: 13px; font-weight: 600;
+    padding: 0 18px; height: 100%; display: flex; align-items: center;
+    cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -3px;
+    transition: color .2s, border-color .2s; user-select: none; font-family: 'Karla', sans-serif;
+  }
+  .nav-tab:hover { color: white; }
+  .nav-tab.active { color: white; border-bottom-color: var(--orange); }
+
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; padding: 16px; }
+    .sidebar { width: 100%; position: static; }
+    .form-grid { grid-template-columns: 1fr; }
+    .form-group.span-2 { grid-column: span 1; }
+    nav { padding: 0 16px; overflow-x: auto; }
+    .page-header { padding: 16px; flex-direction: column; gap: 10px; align-items: flex-start; }
+    .detail-grid { grid-template-columns: 1fr; }
+    .profiles-search { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Auth overlay — shown until Microsoft login is confirmed -->
+<div id="authOverlay" style="position:fixed;inset:0;z-index:9999;background:#001738;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0">
+  <img src="kmc-logo-white.png" alt="KMC Solutions" style="height:48px;width:auto;margin-bottom:32px" onerror="this.style.display='none'">
+  <div style="font-family:'Barlow Condensed',sans-serif;color:white;font-size:32px;font-weight:700;letter-spacing:.5px;margin-bottom:6px">Client Discovery Form</div>
+  <div style="font-family:'Karla',sans-serif;color:rgba(255,255,255,.5);font-size:14px;margin-bottom:40px">Technology Services — KMC Solutions</div>
+  <button id="signInBtn" onclick="signIn()" style="display:flex;align-items:center;gap:12px;background:white;border:none;border-radius:6px;padding:12px 24px;font-family:'Karla',sans-serif;font-size:15px;font-weight:600;color:#001738;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.3)">
+    <svg width="20" height="20" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
+    Sign in with Microsoft
+  </button>
+  <div id="authError" style="margin-top:20px;color:#FF7200;font-family:'Karla',sans-serif;font-size:13px;display:none"></div>
+  <div id="authSpinner" style="margin-top:20px;color:rgba(255,255,255,.4);font-family:'Karla',sans-serif;font-size:13px;display:none">Signing in…</div>
+</div>
+
+<nav>
+  <img src="kmc-logo-white.png" alt="KMC Solutions" style="height:32px;width:auto;margin-right:28px;padding:12px 0;box-sizing:content-box;">
+  <div style="width:1px;height:28px;background:rgba(255,255,255,.2);margin-right:0;flex-shrink:0"></div>
+  <div class="nav-tabs">
+    <div class="nav-tab active" id="tab-form" onclick="switchTab('form')">New Entry</div>
+    <div class="nav-tab" id="tab-profiles" onclick="switchTab('profiles')">View Profiles</div>
+  </div>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:16px;padding-right:0">
+    <div style="text-align:right">
+      <div style="font-family:'Barlow Condensed',sans-serif;color:white;font-size:22px;font-weight:700;letter-spacing:.5px">Client Discovery Form</div>
+      <div style="font-family:'Karla',sans-serif;color:rgba(255,255,255,.5);font-size:12px;margin-top:1px;letter-spacing:.3px">Technology Services</div>
+    </div>
+    <span id="draftStatus" style="font-size:12px;color:rgba(255,255,255,.4);transition:opacity 1s;opacity:0">Draft saved</span>
+    <div id="navUser" style="display:none;align-items:center;gap:10px;border-left:1px solid rgba(255,255,255,.15);padding-left:16px;margin-left:8px">
+      <div style="text-align:right">
+        <div id="navUserName" style="font-family:'Karla',sans-serif;color:white;font-size:13px;font-weight:600"></div>
+        <div id="navUserEmail" style="font-family:'Karla',sans-serif;color:rgba(255,255,255,.45);font-size:11px"></div>
+      </div>
+      <button onclick="signOut()" title="Sign out" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:5px;color:rgba(255,255,255,.7);font-family:'Karla',sans-serif;font-size:12px;padding:5px 10px;cursor:pointer">Sign out</button>
+    </div>
+  </div>
+</nav>
+
+<!-- Settings modal -->
+<div id="settingsModal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center">
+  <div style="background:white;border-radius:12px;width:520px;max-width:95vw;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="background:var(--navy);padding:16px 20px;display:flex;align-items:center;justify-content:space-between">
+      <div style="font-family:'Barlow Condensed',sans-serif;color:white;font-size:18px;font-weight:700">SharePoint Integration</div>
+      <button onclick="closeSettings()" style="background:none;border:none;color:rgba(255,255,255,.6);font-size:20px;cursor:pointer;line-height:1">✕</button>
+    </div>
+    <div style="padding:20px">
+      <p style="font-size:14px;color:var(--muted);margin-bottom:16px">Paste your Power Automate HTTP trigger URL below. Every time a profile is saved it will be sent to your SharePoint Excel file automatically.</p>
+      <div class="form-group">
+        <label>Power Automate Webhook URL</label>
+        <input type="text" id="webhookUrl" placeholder="https://prod-xx.westus.logic.azure.com/workflows/…" style="font-size:13px">
+      </div>
+      <div id="webhookStatus" style="margin-top:10px;font-size:13px"></div>
+      <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">
+        <button class="btn btn-secondary" onclick="closeSettings()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveSettings()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+
+
+    <nav class="sidebar-nav">
+      <div class="sidebar-header">Sections</div>
+      <a href="#company" onclick="scrollTo('company')"><span class="check-dot" id="dot-company"></span>Company Info</a>
+      <a href="#client-rep" onclick="scrollTo('client-rep')"><span class="check-dot" id="dot-client-rep"></span>Client Rep</a>
+      <a href="#tech-contact" onclick="scrollTo('tech-contact')"><span class="check-dot" id="dot-tech-contact"></span>Technical Contact</a>
+      <a href="#overview" onclick="scrollTo('overview')"><span class="check-dot" id="dot-overview"></span>Requirements Overview</a>
+      <a href="#hardware" onclick="scrollTo('hardware')"><span class="check-dot" id="dot-hardware"></span>Hardware</a>
+      <a href="#network" onclick="scrollTo('network')"><span class="check-dot" id="dot-network"></span>Network &amp; Voice</a>
+      <a href="#web-filter" onclick="scrollTo('web-filter')"><span class="check-dot" id="dot-web-filter"></span>Web Content Filtering</a>
+      <a href="#build" onclick="scrollTo('build')"><span class="check-dot" id="dot-build"></span>Build to Suit</a>
+      <a href="#additional" onclick="scrollTo('additional')"><span class="check-dot" id="dot-additional"></span>Additional Requirements</a>
+    </nav>
+  </aside>
+
+  <!-- Main form -->
+  <main class="main">
+    <form id="discoveryForm" onsubmit="saveProfile(event)">
+
+      <!-- 1. Company Information -->
+      <div class="form-section" id="company">
+        <div class="section-header">
+          <span class="section-icon">🏢</span>
+          <div>
+            <h2>Company Information</h2>
+            <p>Basic client and account details</p>
+          </div>
+        </div>
+        <div class="section-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Company Name <span style="color:#dc2626">*</span></label>
+              <input type="text" id="companyName" placeholder="e.g. Acme Corporation" required oninput="updateProgress()">
+            </div>
+            <div class="form-group">
+              <label>Nature of Business <span style="color:#dc2626">*</span></label>
+              <input type="text" id="natureOfBusiness" placeholder="e.g. BPO / Contact Center" required oninput="updateProgress()">
+            </div>
+            <div class="form-group">
+              <label>Projected # of Seats <span style="color:#dc2626">*</span></label>
+              <input type="number" id="projectedSeats" placeholder="e.g. 50" min="1" required oninput="updateProgress()">
+            </div>
+            <div class="form-group">
+              <label>Account Manager <span style="color:#dc2626">*</span></label>
+              <input type="text" id="accountManager" placeholder="e.g. John Santos" required oninput="updateProgress()">
+            </div>
+            <div class="form-group span-2">
+              <label>Sites &amp; Floors</label>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <select id="site" onchange="updateFloors()" style="flex:3;min-width:180px">
+                  <option value="">Select site…</option>
+                  <option>Armstrong Corporate Center</option>
+                  <option>Arthaland Century Pacific Tower</option>
+                  <option>Axis Tower 1</option>
+                  <option>Cyber Sigma</option>
+                  <option>Cyberscape Gamma</option>
+                  <option>Exxa Tower</option>
+                  <option>Five E-Com</option>
+                  <option>Four/Neo</option>
+                  <option>Frabelle Corporate Plaza</option>
+                  <option>Hm Tower</option>
+                  <option>Jollibee Tower</option>
+                  <option>Lexmark Plaza 3</option>
+                  <option>One Ayala Malls</option>
+                  <option>One Ayala Tower</option>
+                  <option>One Griffinstone</option>
+                  <option>One West Aeropark</option>
+                  <option>Park Triangle Corporate Center</option>
+                  <option>Pbcom Tower</option>
+                  <option>Picadilly Star</option>
+                  <option>Podium West Tower</option>
+                  <option>Rockwell Business Center Tower 1</option>
+                  <option>Sheridan</option>
+                  <option>Skyrise 3B</option>
+                  <option>Skyrise 4A</option>
+                  <option>Skyrise 4B</option>
+                  <option>Sm Aura Office Tower</option>
+                  <option>Sm North Edsa</option>
+                  <option>Uptown Place Tower 2</option>
+                  <option>V. Corporate Centre</option>
+                  <option>Zeta Tower</option>
+                </select>
+                <select id="floor" style="flex:2;min-width:120px">
+                  <option value="">Select site first…</option>
+                </select>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="addSiteFloor()">+ Add</button>
+              </div>
+              <div id="siteFloorWrap" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;min-height:28px"></div>
+            </div>
+            <div class="form-group">
+              <label>Headcount</label>
+              <input type="number" id="headcount" placeholder="e.g. 120" min="1" oninput="updateProgress()">
+            </div>
+            <div class="form-group">
+              <label>Client Type</label>
+              <select id="clientType" onchange="updateProgress()">
+                <option value="">— select —</option>
+                <option>Seat Client</option>
+                <option>Staffing Client</option>
+                <option>Both</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>VIP</label>
+              <select id="isVip" onchange="updateProgress()">
+                <option value="">— select —</option>
+                <option>Yes</option>
+                <option>No</option>
+              </select>
+            </div>
+            <div class="form-group" style="justify-content:flex-end;padding-top:6px">
+              <div class="checkbox-row">
+                <input type="checkbox" id="existingClient" onchange="updateProgress()">
+                <label for="existingClient">Existing Client</label>
+              </div>
+            </div>
+            <div class="form-group span-2">
+              <label>OSP Organization Link <span class="optional">(optional)</span></label>
+              <input type="text" id="ospLink" placeholder="https://…" oninput="updateProgress()">
+            </div>
+            <div class="form-group">
+              <label>Lead Source</label>
+              <select id="leadSource" onchange="toggleBrokerField(); updateProgress()">
+                <option value="">— select —</option>
+                <option>Broker</option>
+                <option>Reseller</option>
+                <option>Partner Referral</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div class="form-group span-2">
+              <label>Lead Source Details <span class="optional">(optional)</span></label>
+              <input type="text" id="leadSourceDetails" placeholder="Additional details about how the client came in…" oninput="updateProgress()">
+            </div>
+            <div class="form-group span-2" id="brokerFieldWrap" style="display:none">
+              <label>Broker Name</label>
+              <input type="text" id="brokerName" placeholder="e.g. CBRE, Colliers, JLL…" oninput="updateProgress()">
+            </div>
+            <div class="form-group span-2">
+              <label>Campaign Types</label>
+              <div id="campaignChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:2px">
+                <span class="campaign-chip" onclick="toggleCampaign(this)">Inbound Voice</span>
+                <span class="campaign-chip" onclick="toggleCampaign(this)">Outbound Voice</span>
+                <span class="campaign-chip" onclick="toggleCampaign(this)">Blended</span>
+                <span class="campaign-chip" onclick="toggleCampaign(this)">Chat Support</span>
+                <span class="campaign-chip" onclick="toggleCampaign(this)">Email Support</span>
+                <span class="campaign-chip" onclick="toggleCampaign(this)">Back Office</span>
+                <span class="campaign-chip" onclick="toggleCampaign(this)">Technical Support</span>
+                <span class="campaign-chip" onclick="toggleCampaign(this)">Customer Service</span>
+                <span class="campaign-chip" onclick="toggleCampaign(this)">Sales</span>
+                <span class="campaign-chip" onclick="toggleCampaign(this)">Collections</span>
+                <span class="campaign-chip" onclick="toggleCampaign(this)">Healthcare</span>
+                <span class="campaign-chip" onclick="toggleCampaign(this)">Finance & Accounting</span>
+                <span class="campaign-chip" onclick="toggleCampaign(this)">HR & Recruitment</span>
+                <span class="campaign-chip" onclick="toggleCampaign(this)">Data Entry</span>
+                <span class="campaign-chip" onclick="toggleCampaign(this)">Social Media</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Client Representative -->
+      <div class="form-section" id="client-rep">
+        <div class="section-header">
+          <span class="section-icon">👤</span>
+          <div>
+            <h2>Client Representative Information</h2>
+            <p>Primary point of contact on the client side</p>
+          </div>
+        </div>
+        <div class="section-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Full Name <span style="color:#dc2626">*</span></label>
+              <input type="text" id="clientRepName" placeholder="e.g. Maria Santos" required oninput="updateProgress()">
+            </div>
+            <div class="form-group">
+              <label>Company Designation</label>
+              <input type="text" id="clientRepDesignation" placeholder="e.g. IT Manager" oninput="updateProgress()">
+            </div>
+            <div class="form-group">
+              <label>Contact Number</label>
+              <input type="tel" id="clientRepPhone" placeholder="+63 9XX XXX XXXX" oninput="updateProgress()">
+            </div>
+            <div class="form-group">
+              <label>Email Address</label>
+              <input type="email" id="clientRepEmail" placeholder="email@company.com" oninput="updateProgress()">
+            </div>
+            <div class="form-group span-2">
+              <label>Remarks <span class="optional">(optional)</span></label>
+              <textarea id="clientRepRemarks" placeholder="Any additional notes about the client representative…" oninput="updateProgress()"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Technical Contact -->
+      <div class="form-section" id="tech-contact">
+        <div class="section-header">
+          <span class="section-icon">🔧</span>
+          <div>
+            <h2>Technical Contact Information</h2>
+            <p>Client-side technical point of contact</p>
+          </div>
+        </div>
+        <div class="section-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Technical Contact Name</label>
+              <input type="text" id="techContactName" placeholder="e.g. James Cruz" oninput="updateProgress()">
+            </div>
+            <div class="form-group">
+              <label>Position / Role</label>
+              <input type="text" id="techContactPosition" placeholder="e.g. Network Engineer" oninput="updateProgress()">
+            </div>
+            <div class="form-group span-2">
+              <label>Contact Number</label>
+              <input type="tel" id="techContactPhone" placeholder="+63 9XX XXX XXXX" oninput="updateProgress()">
+            </div>
+            <div class="form-group span-2">
+              <label>Remarks <span class="optional">(optional)</span></label>
+              <textarea id="techContactRemarks" placeholder="Notes about technical setup, escalation procedures, availability…" oninput="updateProgress()"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Requirements Overview -->
+      <div class="form-section" id="overview">
+        <div class="section-header">
+          <span class="section-icon">📋</span>
+          <div>
+            <h2>Client Requirements Overview</h2>
+            <p>High-level summary of the client's technical needs</p>
+          </div>
+        </div>
+        <div class="section-body">
+          <div class="form-group">
+            <label>Overview <span style="color:#dc2626">*</span></label>
+            <textarea id="reqOverview" class="tall" placeholder="Describe the client's overall IT requirements, scope of work, key priorities, and any special considerations…" required oninput="updateProgress()"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. Hardware Requirement -->
+      <div class="form-section" id="hardware">
+        <div class="section-header">
+          <span class="section-icon">🖨️</span>
+          <div>
+            <h2>Hardware Requirement</h2>
+            <p>Workstations, peripherals, and networking equipment</p>
+          </div>
+        </div>
+        <div class="section-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Device Type</label>
+              <select id="hwDeviceType" onchange="updateProgress()">
+                <option value="">— select —</option>
+                <option>Desktop</option>
+                <option>Laptop</option>
+                <option>Both Desktop &amp; Laptop</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Ownership / Procurement</label>
+              <select id="hwOwnership" onchange="updateProgress()">
+                <option value="">— select —</option>
+                <option>Client Owned &amp; Purchased</option>
+                <option>Client Owned, KMC Purchased</option>
+                <option>KMC Leased</option>
+              </select>
+            </div>
+            <div class="form-group span-2">
+              <label>Hardware Requirements / Remarks</label>
+              <textarea id="hardwareRemarks" placeholder="Workstation specs, monitors, headsets, switches, routers, UPS, phones — include quantities and preferred brands/models if known." oninput="updateProgress()"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6. Network & Voice Requirement -->
+      <div class="form-section" id="network">
+        <div class="section-header">
+          <span class="section-icon">🔌</span>
+          <div>
+            <h2>Network &amp; Voice</h2>
+            <p>Ports, access rules, voice platform, and network configuration</p>
+          </div>
+        </div>
+        <div class="section-body">
+          <div class="form-grid cols-1">
+            <div class="form-group">
+              <label>Ports Needed <span class="optional">— press Enter to add each port</span></label>
+              <div class="tag-input-wrap" id="portsWrap" onclick="document.getElementById('portsInput').focus()">
+                <input class="tag-real-input" id="portsInput" placeholder="e.g. 5060 UDP, 443 TCP, 8443…" onkeydown="handleTagKey(event,'ports')">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Points of Interest</label>
+              <textarea id="networkPOI" placeholder="Key network locations, sites, data centers, branch offices, ISP details…" oninput="updateProgress()"></textarea>
+            </div>
+            <div class="form-group">
+              <label>Custom Access Rules</label>
+              <textarea id="networkAccessRules" placeholder="Firewall rules, VPN policies, VLAN requirements, QoS settings…" oninput="updateProgress()"></textarea>
+            </div>
+            <div class="form-group">
+              <label>Remarks <span class="optional">(optional)</span></label>
+              <textarea id="networkRemarks" placeholder="Additional network notes, existing infrastructure, bandwidth requirements…" oninput="updateProgress()"></textarea>
+            </div>
+
+            <!-- Own Network -->
+            <div class="form-group">
+              <div class="checkbox-row">
+                <input type="checkbox" id="ownNetwork" onchange="toggleOwnNetwork(); updateProgress()">
+                <label for="ownNetwork">Own Network</label>
+              </div>
+            </div>
+            <div id="ownNetworkDetailsWrap" style="display:none">
+              <div class="form-group">
+                <label>Network Details</label>
+                <textarea id="ownNetworkDetails" placeholder="ISP, bandwidth, equipment, topology details…" oninput="updateProgress()"></textarea>
+              </div>
+            </div>
+
+            <!-- Dedicated SSID -->
+            <div class="form-group">
+              <div class="checkbox-row">
+                <input type="checkbox" id="dedicatedSsid" onchange="toggleSsidFields(); updateProgress()">
+                <label for="dedicatedSsid">Dedicated SSID</label>
+              </div>
+            </div>
+            <div id="ssidFieldsWrap" style="display:none">
+              <div class="form-grid" style="margin-bottom:0">
+                <div class="form-group">
+                  <label>SSID Name</label>
+                  <input type="text" id="ssidName" placeholder="e.g. KMC-ClientName-5G" oninput="updateProgress()">
+                </div>
+                <div class="form-group">
+                  <label>SSID Password</label>
+                  <input type="text" id="ssidPassword" placeholder="Wi-Fi password" oninput="updateProgress()">
+                </div>
+              </div>
+            </div>
+
+            <!-- Maintenance Window -->
+            <div class="form-group">
+              <label>Maintenance Window <span class="optional">(optional)</span></label>
+              <input type="text" id="maintenanceWindow" placeholder="e.g. Sundays 12:00 AM – 4:00 AM PHT" oninput="updateProgress()">
+            </div>
+
+            <!-- Voice phone type -->
+            <div class="form-group">
+              <label>Phone Type <span class="optional">— if voice campaign</span></label>
+              <div style="display:flex;gap:20px;margin-top:4px">
+                <div class="checkbox-row">
+                  <input type="checkbox" id="phoneHardphone" onchange="updateProgress()">
+                  <label for="phoneHardphone">Hardphone</label>
+                </div>
+                <div class="checkbox-row">
+                  <input type="checkbox" id="phoneSoftphone" onchange="updateProgress()">
+                  <label for="phoneSoftphone">Softphone</label>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Platforms / Applications in Use</label>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <select id="platformPickerSelect" style="flex:2;min-width:160px">
+                  <option value="">Select platform…</option>
+                  <option>8x8</option>
+                  <option>Amazon Connect</option>
+                  <option>Amazon Web Services (AWS)</option>
+                  <option>Avaya</option>
+                  <option>Cisco/Webex</option>
+                  <option>Five9</option>
+                  <option>Genesys Cloud</option>
+                  <option>Google Cloud</option>
+                  <option>Google Workspace</option>
+                  <option>Microsoft 365</option>
+                  <option>Microsoft Azure</option>
+                  <option>Microsoft Teams</option>
+                  <option>NICE CXone</option>
+                  <option>On-Prem PBX</option>
+                  <option>RingCentral</option>
+                  <option>Salesforce</option>
+                  <option>ServiceNow</option>
+                  <option>Slack</option>
+                  <option>Twilio Flex</option>
+                  <option>Zendesk</option>
+                  <option>Zoom</option>
+                  <option>Zoom Contact Center</option>
+                  <option>Other</option>
+                </select>
+                <input type="text" id="platformUrlInput" placeholder="URL (optional)" style="flex:3;min-width:180px" onkeydown="if(event.key==='Enter'){event.preventDefault();addPlatformTag();}">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="addPlatformTag()">+ Add</button>
+              </div>
+              <div id="platformsWrap" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;min-height:28px"></div>
+            </div>
+            <div class="form-group">
+              <label>Platform Remarks <span class="optional">(optional)</span></label>
+              <textarea id="voiceRemarks" placeholder="Details about the platform, integration requirements, usage notes…" oninput="updateProgress()"></textarea>
+            </div>
+            <div class="form-group">
+              <label>Network Diagrams <span class="optional">— topology maps, rack diagrams, etc.</span></label>
+              <div class="file-upload" id="upload-networkDiagrams">
+                <input type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.dwg,.svg,.vsdx,.zip" onchange="handleNetworkFiles(this)">
+                <div class="file-upload-icon">🗺️</div>
+                <p><strong>Click to upload</strong> or drag & drop</p>
+                <p class="accepted">PDF, PNG, JPG, DWG, SVG, Visio, ZIP — multiple files allowed</p>
+              </div>
+              <div id="preview-networkDiagrams"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 7. Web Content Filtering -->
+      <div class="form-section" id="web-filter">
+        <div class="section-header">
+          <span class="section-icon">🌐</span>
+          <div>
+            <h2>Web Content Filtering</h2>
+            <p>Websites and domains to allow or block</p>
+          </div>
+        </div>
+        <div class="section-body">
+          <div class="form-grid cols-1">
+            <div class="form-group">
+              <label>Allowed List <span class="optional">— press Enter to add each entry</span></label>
+              <div class="tag-input-wrap" id="allowedWrap" onclick="document.getElementById('allowedInput').focus()">
+                <input class="tag-real-input" id="allowedInput" placeholder="e.g. zoom.us, salesforce.com…" onkeydown="handleTagKey(event,'allowed')">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Forbidden List <span class="optional">— press Enter to add each entry</span></label>
+              <div class="tag-input-wrap" id="forbiddenWrap" onclick="document.getElementById('forbiddenInput').focus()">
+                <input class="tag-real-input" id="forbiddenInput" placeholder="e.g. facebook.com, youtube.com…" onkeydown="handleTagKey(event,'forbidden')">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Remarks <span class="optional">(optional)</span></label>
+              <textarea id="webFilterRemarks" placeholder="Content filtering policies, exceptions, compliance requirements…" oninput="updateProgress()"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 9. Build to Suit -->
+      <div class="form-section" id="build">
+        <div class="section-header">
+          <span class="section-icon">🏗️</span>
+          <div>
+            <h2>Build to Suit Project</h2>
+            <p>Diagrams, floor plans, and hardware component lists</p>
+          </div>
+        </div>
+        <div class="section-body">
+          <div class="form-grid cols-1">
+          <div class="form-group">
+            <label>BTS Requirements</label>
+            <textarea id="btsRemarks" class="tall" placeholder="Describe the build to suit requirements — space layout, infrastructure needs, cabling, power, cooling, special configurations…" oninput="updateProgress()"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Attachments <span class="optional">— floor plans, diagrams, hardware lists, etc.</span></label>
+            <div class="file-upload" id="upload-btsAttachments">
+              <input type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.dwg,.svg,.vsdx,.xlsx,.xls,.csv,.zip" onchange="handleFiles(this)">
+              <div class="file-upload-icon">📎</div>
+              <p><strong>Click to upload</strong> or drag & drop</p>
+              <p class="accepted">PDF, PNG, JPG, DWG, SVG, Visio, Excel, CSV, ZIP — multiple files allowed</p>
+            </div>
+            <div id="preview-btsAttachments"></div>
+          </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Additional Requirements -->
+      <div class="form-section" id="additional">
+        <div class="section-header">
+          <span class="section-icon">📋</span>
+          <div>
+            <h2>Additional Requirements</h2>
+            <p>Any other requirements not covered above</p>
+          </div>
+        </div>
+        <div class="section-body">
+          <div class="form-grid cols-1">
+            <div class="form-group">
+              <textarea id="networkAdditionalReq" class="tall" placeholder="Any other requirements, special configurations, compliance needs, or notes…" oninput="updateProgress()"></textarea>
+            </div>
+            <div class="form-group">
+              <label>Attachments <span class="optional">— supporting docs, configs, etc.</span></label>
+              <div class="file-upload" id="upload-networkAdditional">
+                <input type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.docx,.xlsx,.zip,.txt,.csv" onchange="handleNetworkAdditionalFiles(this)">
+                <div class="file-upload-icon">📎</div>
+                <p><strong>Click to upload</strong> or drag & drop</p>
+                <p class="accepted">PDF, Word, Excel, PNG, ZIP, CSV — multiple files allowed</p>
+              </div>
+              <div id="preview-networkAdditional"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </form>
+  </main>
+</div>
+
+<!-- Sticky footer -->
+<div class="form-footer">
+  <button type="button" class="btn btn-secondary" onclick="clearForm()">Clear Form</button>
+  <label class="btn btn-secondary" style="cursor:pointer" title="Import a filled client intake template">
+    📥 Import Template
+    <input type="file" accept=".xlsx" style="display:none" onchange="importTemplate(this)">
+  </label>
+  <button type="submit" form="discoveryForm" class="btn btn-primary">💾 Save Client Profile</button>
+</div>
+
+<!-- Profiles view -->
+<div id="profilesView" style="display:none">
+  <div class="profiles-view">
+    <div class="profiles-toolbar">
+      <h2>Client Profiles <span id="profileCount" style="font-size:14px;font-weight:400;color:var(--muted)"></span></h2>
+      <input class="profiles-search" type="text" id="profileSearch" placeholder="Search by company, AM, client type…" oninput="filterProfiles()">
+      <button class="btn btn-secondary btn-sm" onclick="exportJSON()">⬇ Export to Excel</button>
+    </div>
+    <div class="profiles-table-wrap">
+      <div id="profilesTableContainer"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Detail modal -->
+<div class="detail-modal-bg" id="detailModal">
+  <div class="detail-modal">
+    <div class="detail-modal-header">
+      <h3 id="detailModalTitle">Profile Details</h3>
+      <button onclick="closeDetail()" style="background:none;border:none;color:rgba(255,255,255,.7);font-size:22px;cursor:pointer;line-height:1">✕</button>
+    </div>
+    <div class="detail-modal-body" id="detailModalBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Microsoft Authentication ─────────────────────────────────────────────────
+const msalConfig = {
+  auth: {
+    clientId: 'b81b70cb-5731-4f73-b78e-f96284f829de',
+    authority: 'https://login.microsoftonline.com/c3435bea-c1d5-42d3-9288-7387a8459771',
+    redirectUri: window.location.origin + window.location.pathname.replace(/\/$/, '') + (window.location.pathname.endsWith('/') ? '/' : '')
+  },
+  cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false }
+};
+
+const msalInstance = new msal.PublicClientApplication(msalConfig);
+
+function signIn() {
+  document.getElementById('signInBtn').style.display = 'none';
+  document.getElementById('authSpinner').style.display = 'block';
+  msalInstance.loginRedirect({ scopes: ['User.Read'] });
+}
+
+function signOut() {
+  msalInstance.logoutRedirect({ postLogoutRedirectUri: window.location.href });
+}
+
+function showApp(account) {
+  const overlay = document.getElementById('authOverlay');
+  if (overlay) overlay.style.display = 'none';
+  const navUser = document.getElementById('navUser');
+  if (navUser) {
+    navUser.style.display = 'flex';
+    document.getElementById('navUserName').textContent = account.name || '';
+    document.getElementById('navUserEmail').textContent = account.username || '';
+  }
+}
+
+// Handle redirect and check existing session
+msalInstance.handleRedirectPromise().then(response => {
+  const account = response?.account || msalInstance.getAllAccounts()[0];
+  if (account) {
+    msalInstance.setActiveAccount(account);
+    showApp(account);
+  } else {
+    // No session — keep overlay visible, show sign-in button
+    document.getElementById('authSpinner').style.display = 'none';
+    document.getElementById('signInBtn').style.display = 'flex';
+  }
+}).catch(err => {
+  console.error('MSAL error:', err);
+  const errEl = document.getElementById('authError');
+  if (errEl) { errEl.textContent = 'Sign-in failed. Please try again.'; errEl.style.display = 'block'; }
+  document.getElementById('authSpinner').style.display = 'none';
+  document.getElementById('signInBtn').style.display = 'flex';
+});
+// ─────────────────────────────────────────────────────────────────────────────
+
+const STORAGE_KEY = 'kmc_client_profiles';
+let _filteredProfiles = [];
+const tags = { allowed: [], forbidden: [], ports: [], platforms: [] };
+const attachedFiles = {};
+const networkFiles = {};
+
+const SITE_FLOORS = {
+  'Armstrong Corporate Center':         ['GF','7F','8F','9F','10F','11F','12F','14F','15F Penthouse'],
+  'Arthaland Century Pacific Tower':    ['10F'],
+  'Axis Tower 1':                       ['24F','26F'],
+  'Cyber Sigma':                        ['19F','20F'],
+  'Cyberscape Gamma':                   ['15F','16F','27F','28F','29F'],
+  'Exxa Tower':                         ['18F'],
+  'Five E-Com':                         ['1F','12F'],
+  'Four/Neo':                           ['11F','12F'],
+  'Frabelle Corporate Plaza':           ['17F','18F'],
+  'Jollibee Tower':                     ['14F','15F','16F','17F','18F'],
+  'One Ayala Malls':                    ['4F','4F.2','5F'],
+  'One Ayala Tower':                    ['6F','7F','8F','9F','10F','11F','16F'],
+  'One Griffinstone':                   ['9F','10F'],
+  'One West Aeropark':                  ['5F','11F Penthouse'],
+  'Park Triangle Corporate Center':     ['15F'],
+  'Pbcom Tower':                        ['33F'],
+  'Picadilly Star':                     ['20F','24F','25F'],
+  'Podium West Tower':                  ['26F','27F'],
+  'Rockwell Business Center Tower 1':   ['6F'],
+  'Sheridan':                           ['10F'],
+  'Skyrise 3B':                         ['17F','18F','19F'],
+  'Skyrise 4A':                         ['10F','17F','18F'],
+  'Sm Aura Office Tower':               ['11F'],
+  'Sm North Edsa':                      ['15F','16F'],
+  'Uptown Place Tower 2':               ['19F','20F'],
+  'V. Corporate Centre':                ['5F','9F'],
+  'Zeta Tower':                         ['7F','8F','9F'],
+};
+
+const siteFloors = []; // array of { site, floor }
+
+function updateFloors() {
+  const site = document.getElementById('site').value;
+  const floorSel = document.getElementById('floor');
+  const floors = SITE_FLOORS[site];
+  if (floors) {
+    floorSel.innerHTML = '<option value="">Select floor…</option>' +
+      floors.map(f => `<option>${f}</option>`).join('');
+  } else {
+    floorSel.innerHTML = '<option value="">Select site first…</option>';
+  }
+}
+
+function addSiteFloor() {
+  const site = document.getElementById('site').value;
+  const floor = document.getElementById('floor').value;
+  if (!site) return;
+  const label = floor ? `${site} — ${floor}` : site;
+  // prevent exact duplicates
+  if (siteFloors.some(e => e.site === site && e.floor === floor)) return;
+  siteFloors.push({ site, floor });
+  renderSiteFloors();
+  document.getElementById('site').value = '';
+  document.getElementById('floor').innerHTML = '<option value="">Select site first…</option>';
+  updateProgress();
+}
+
+function removeSiteFloor(i) {
+  siteFloors.splice(i, 1);
+  renderSiteFloors();
+  updateProgress();
+}
+
+function renderSiteFloors() {
+  const wrap = document.getElementById('siteFloorWrap');
+  if (!wrap) return;
+  wrap.innerHTML = siteFloors.map((e, i) => `
+    <span style="display:inline-flex;align-items:center;gap:5px;background:var(--light);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:13px;font-weight:600;color:var(--navy)">
+      ${e.site}${e.floor ? `<span style="font-weight:400;color:var(--muted)"> · ${e.floor}</span>` : ''}
+      <button type="button" onclick="removeSiteFloor(${i})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;line-height:1;padding:0 2px">×</button>
+    </span>`).join('');
+}
+
+// Required fields for progress
+const REQUIRED = ['companyName','natureOfBusiness','projectedSeats','accountManager','clientRepName','reqOverview'];
+
+function getProfiles() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; }
+}
+function saveProfiles(data) { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+
+// Tag input
+function handleTagKey(e, key) {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const val = e.target.value.trim().replace(/,$/, '');
+    if (val) addTag(key, val);
+    e.target.value = '';
+  } else if (e.key === 'Backspace' && !e.target.value && tags[key].length) {
+    removeTag(key, tags[key].length - 1);
+  }
+}
+function addTag(key, val) {
+  if (!tags[key].includes(val)) {
+    tags[key].push(val);
+    renderTags(key);
+  }
+}
+function removeTag(key, i) {
+  tags[key].splice(i, 1);
+  renderTags(key);
+}
+function renderTags(key) {
+  const wrap = document.getElementById(key + 'Wrap');
+  const input = document.getElementById(key + 'Input');
+  wrap.querySelectorAll('.tag').forEach(t => t.remove());
+  tags[key].forEach((v, i) => {
+    const tag = document.createElement('span');
+    tag.className = 'tag';
+    tag.innerHTML = `${v}<button type="button" onclick="removeTag('${key}',${i})">×</button>`;
+    wrap.insertBefore(tag, input);
+  });
+  updateProgress();
+}
+
+function toggleOwnNetwork() {
+  const checked = document.getElementById('ownNetwork').checked;
+  document.getElementById('ownNetworkDetailsWrap').style.display = checked ? '' : 'none';
+  if (!checked) document.getElementById('ownNetworkDetails').value = '';
+}
+function toggleSsidFields() {
+  const checked = document.getElementById('dedicatedSsid').checked;
+  document.getElementById('ssidFieldsWrap').style.display = checked ? '' : 'none';
+  if (!checked) { document.getElementById('ssidName').value = ''; document.getElementById('ssidPassword').value = ''; }
+}
+
+function toggleBrokerField() {
+  const val = document.getElementById('leadSource').value;
+  document.getElementById('brokerFieldWrap').style.display = val === 'Broker' ? '' : 'none';
+  if (val !== 'Broker') document.getElementById('brokerName').value = '';
+}
+
+function toggleCampaign(el) {
+  el.classList.toggle('selected');
+  updateProgress();
+}
+function getSelectedCampaigns() {
+  return [...document.querySelectorAll('.campaign-chip.selected')].map(el => el.textContent);
+}
+
+function addPlatformTag() {
+  const sel = document.getElementById('platformPickerSelect');
+  const urlEl = document.getElementById('platformUrlInput');
+  const name = sel.value;
+  if (!name) return;
+  const url = urlEl.value.trim();
+  tags.platforms.push({ name, url });
+  sel.value = '';
+  urlEl.value = '';
+  renderPlatformTags();
+  updateProgress();
+}
+function removePlatformTag(i) {
+  tags.platforms.splice(i, 1);
+  renderPlatformTags();
+  updateProgress();
+}
+function renderPlatformTags() {
+  const wrap = document.getElementById('platformsWrap');
+  if (!wrap) return;
+  wrap.innerHTML = tags.platforms.map((p, i) => `
+    <span style="display:inline-flex;align-items:center;gap:5px;background:var(--light);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:12px;font-weight:600;color:var(--navy)">
+      ${p.name}${p.url ? `<span style="font-weight:400;color:var(--muted)"> · ${p.url}</span>` : ''}
+      <button type="button" onclick="removePlatformTag(${i})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;line-height:1;padding:0 2px">×</button>
+    </span>`).join('');
+}
+
+const networkAdditionalFiles = {};
+
+// Network diagram files
+function handleNetworkFiles(input) {
+  Array.from(input.files).forEach(file => {
+    networkFiles[file.name] = { name: file.name, size: file.size, type: file.type };
+  });
+  renderNetworkPreviews();
+  updateProgress();
+}
+function renderNetworkPreviews() {
+  const prev = document.getElementById('preview-networkDiagrams');
+  if (!prev) return;
+  prev.innerHTML = Object.values(networkFiles).map(f => `<div class="file-preview">
+    <span>📎</span>
+    <span class="fname">${f.name}</span>
+    <span style="font-size:11px;color:var(--muted)">${(f.size/1024).toFixed(0)} KB</span>
+    <button type="button" onclick="removeNetworkFile('${f.name}')">✕</button>
+  </div>`).join('');
+}
+function removeNetworkFile(name) {
+  delete networkFiles[name];
+  renderNetworkPreviews();
+}
+
+// Additional network/voice attachments
+function handleNetworkAdditionalFiles(input) {
+  Array.from(input.files).forEach(file => {
+    networkAdditionalFiles[file.name] = { name: file.name, size: file.size, type: file.type };
+  });
+  renderNetworkAdditionalPreviews();
+  updateProgress();
+}
+function renderNetworkAdditionalPreviews() {
+  const prev = document.getElementById('preview-networkAdditional');
+  if (!prev) return;
+  prev.innerHTML = Object.values(networkAdditionalFiles).map(f => `<div class="file-preview">
+    <span>📎</span>
+    <span class="fname">${f.name}</span>
+    <span style="font-size:11px;color:var(--muted)">${(f.size/1024).toFixed(0)} KB</span>
+    <button type="button" onclick="removeNetworkAdditionalFile('${f.name}')">✕</button>
+  </div>`).join('');
+}
+function removeNetworkAdditionalFile(name) {
+  delete networkAdditionalFiles[name];
+  renderNetworkAdditionalPreviews();
+}
+
+// BTS file handling (store metadata only, not binary)
+function handleFiles(input) {
+  Array.from(input.files).forEach(file => {
+    attachedFiles[file.name] = { name: file.name, size: file.size, type: file.type, lastModified: file.lastModified };
+  });
+  renderFilePreviews();
+  updateProgress();
+}
+function renderFilePreviews() {
+  const prev = document.getElementById('preview-btsAttachments');
+  if (!prev) return;
+  const files = Object.values(attachedFiles);
+  prev.innerHTML = files.map(f => `<div class="file-preview">
+    <span>📎</span>
+    <span class="fname">${f.name}</span>
+    <span style="font-size:11px;color:var(--muted)">${(f.size/1024).toFixed(0)} KB</span>
+    <button type="button" onclick="removeFile('${f.name}')">✕</button>
+  </div>`).join('');
+}
+function removeFile(name) {
+  delete attachedFiles[name];
+  renderFilePreviews();
+  updateProgress();
+}
+
+// Progress calculation
+// ── Draft auto-save ──────────────────────────────────────────────────────────
+const DRAFT_KEY = 'kmc_form_draft';
+let draftTimer = null;
+
+function scheduleDraftSave() {
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(saveDraft, 800);
+}
+
+function saveDraft() {
+  const fields = ['companyName','natureOfBusiness','projectedSeats','accountManager',
+    'headcount','clientType','isVip','ospLink','leadSource','brokerName','leadSourceDetails',
+    'clientRepName','clientRepDesignation','clientRepPhone','clientRepEmail','clientRepRemarks',
+    'techContactName','techContactPosition','techContactPhone','techContactRemarks',
+    'reqOverview','hwDeviceType','hwOwnership','hardwareRemarks',
+    'networkPOI','networkAccessRules','networkRemarks','maintenanceWindow',
+    'ssidName','ssidPassword','ownNetworkDetails','voiceRemarks',
+    'webFilterRemarks','btsRemarks','networkAdditionalReq'];
+
+  const draft = {};
+  fields.forEach(id => { const el = document.getElementById(id); if (el) draft[id] = el.value; });
+  // Checkboxes
+  ['ownNetwork','dedicatedSsid','phoneHardphone','phoneSoftphone','existingClient'].forEach(id => {
+    const el = document.getElementById(id); if (el) draft[id] = el.checked;
+  });
+  // Tags & multi-selects
+  draft._tags = { allowed: [...tags.allowed], forbidden: [...tags.forbidden], ports: [...tags.ports] };
+  draft._platforms = [...tags.platforms];
+  draft._siteFloors = [...siteFloors];
+  draft._campaigns = [...document.querySelectorAll('.campaign-chip.selected')].map(el => el.textContent);
+
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+
+  const el = document.getElementById('draftStatus');
+  if (el) { el.textContent = 'Draft saved'; el.style.opacity = '1'; setTimeout(() => el.style.opacity = '0', 2000); }
+}
+
+function restoreDraft() {
+  const raw = localStorage.getItem(DRAFT_KEY);
+  if (!raw) return;
+  try {
+    const draft = JSON.parse(raw);
+    Object.entries(draft).forEach(([id, val]) => {
+      if (id.startsWith('_')) return;
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (typeof val === 'boolean') el.checked = val;
+      else el.value = val;
+    });
+    // Restore toggles
+    toggleOwnNetwork(); toggleSsidFields(); toggleBrokerField();
+    // Tags
+    if (draft._tags) {
+      ['allowed','forbidden','ports'].forEach(k => { tags[k] = draft._tags[k] || []; renderTags(k); });
+    }
+    if (draft._platforms) { tags.platforms = draft._platforms; renderPlatformTags(); }
+    if (draft._siteFloors) { siteFloors.length = 0; draft._siteFloors.forEach(e => siteFloors.push(e)); renderSiteFloors(); }
+    if (draft._campaigns) {
+      document.querySelectorAll('.campaign-chip').forEach(el => {
+        el.classList.toggle('selected', draft._campaigns.includes(el.textContent));
+      });
+    }
+    // Restore floor dropdown for first site if applicable
+    if (siteFloors.length === 0 && document.getElementById('site').value) updateFloors();
+  } catch(e) {}
+}
+
+function clearDraft() {
+  localStorage.removeItem(DRAFT_KEY);
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+function updateProgress() {
+  const filled = REQUIRED.filter(id => {
+    const el = document.getElementById(id);
+    return el && el.value.trim();
+  }).length;
+  const pct = Math.round((filled / REQUIRED.length) * 100);
+  const fill = document.getElementById('progressFill'); if (fill) fill.style.width = pct + '%';
+  const pctEl = document.getElementById('progressPct'); if (pctEl) pctEl.textContent = pct + '%';
+  scheduleDraftSave();
+
+  // Update sidebar dots
+  checkDot('company', ['companyName','natureOfBusiness','projectedSeats','accountManager']);
+  checkDot('client-rep', ['clientRepName']);
+  checkDot('tech-contact', ['techContactName']);
+  checkDot('overview', ['reqOverview']);
+  checkDot('web-filter', []);
+  checkDot('network', ['networkPOI']);
+  checkDot('additional', []);
+  checkDot('hardware', ['hardwareRemarks']);
+  checkDot('build', []);
+}
+function checkDot(section, fields) {
+  const dot = document.getElementById('dot-' + section);
+  if (!dot) return;
+  const done = fields.length === 0 ? false : fields.every(id => {
+    const el = document.getElementById(id);
+    return el && el.value.trim();
+  });
+  dot.className = 'check-dot' + (done ? ' done' : '');
+}
+
+// Smooth scroll
+function scrollTo(id) {
+  event.preventDefault();
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── Edit mode ─────────────────────────────────────────────────────────────────
+let editingProfileId = null;
+
+function editProfile(idx) {
+  const p = _filteredProfiles[idx];
+  editingProfileId = p.id;
+
+  // Switch to form tab
+  switchTab('form');
+
+  // Populate text/select fields
+  const simple = ['companyName','natureOfBusiness','projectedSeats','accountManager',
+    'headcount','clientType','isVip','ospLink','leadSource','brokerName','leadSourceDetails',
+    'clientRepName','clientRepDesignation','clientRepPhone','clientRepEmail','clientRepRemarks',
+    'techContactName','techContactPosition','techContactPhone','techContactRemarks',
+    'reqOverview','hwDeviceType','hwOwnership','hardwareRemarks',
+    'ownNetworkDetails','ssidName','ssidPassword','maintenanceWindow',
+    'networkPOI','networkAccessRules','networkRemarks','voiceRemarks',
+    'webFilterRemarks','btsRemarks','networkAdditionalReq'];
+  simple.forEach(id => {
+    const el = document.getElementById(id);
+    if (el && p[id] !== undefined) el.value = p[id];
+  });
+
+  // Checkboxes
+  ['ownNetwork','dedicatedSsid','phoneHardphone','phoneSoftphone','existingClient'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.checked = !!p[id];
+  });
+  toggleOwnNetwork(); toggleSsidFields();
+
+  // Campaign chips
+  document.querySelectorAll('.campaign-chip.selected').forEach(el => el.classList.remove('selected'));
+  (p.campaignTypes || []).forEach(ct => {
+    document.querySelectorAll('.campaign-chip').forEach(chip => {
+      if (chip.textContent.trim() === ct) chip.classList.add('selected');
+    });
+  });
+
+  // Tags
+  tags.allowed = [...(p.allowedList||[])]; renderTags('allowed');
+  tags.forbidden = [...(p.forbiddenList||[])]; renderTags('forbidden');
+  tags.ports = [...(p.portsNeeded||[])]; renderTags('ports');
+  tags.platforms = [...(p.platforms||[])]; renderPlatformTags();
+
+  // Sites & floors
+  siteFloors.length = 0;
+  (p.sites||[]).forEach(s => siteFloors.push({...s}));
+  renderSiteFloors();
+
+  // Show editing banner
+  let banner = document.getElementById('editBanner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'editBanner';
+    banner.style.cssText = 'background:#fff5ee;border-bottom:3px solid var(--orange);padding:10px 32px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;color:var(--navy);';
+    document.querySelector('.layout').before(banner);
+  }
+  banner.innerHTML = `<span>✏️ Editing: <strong>${p.companyName}</strong></span><button onclick="cancelEdit()" style="background:none;border:1.5px solid var(--border);border-radius:6px;padding:5px 14px;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);font-family:inherit;">Cancel Edit</button>`;
+  banner.style.display = 'flex';
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function cancelEdit() {
+  editingProfileId = null;
+  const banner = document.getElementById('editBanner');
+  if (banner) banner.style.display = 'none';
+  clearForm();
+}
+
+// Save
+function saveProfile(e) {
+  e.preventDefault();
+  const profile = {
+    id: editingProfileId || Date.now().toString(),
+    savedAt: new Date().toISOString(),
+    // Company
+    companyName: v('companyName'),
+    natureOfBusiness: v('natureOfBusiness'),
+    projectedSeats: v('projectedSeats'),
+    accountManager: v('accountManager'),
+    sites: [...siteFloors],
+    headcount: v('headcount'),
+    clientType: v('clientType'),
+    isVip: v('isVip'),
+    existingClient: document.getElementById('existingClient').checked,
+    ospLink: v('ospLink'),
+    leadSource: v('leadSource'),
+    brokerName: v('brokerName'),
+    leadSourceDetails: v('leadSourceDetails'),
+    campaignTypes: getSelectedCampaigns(),
+    // Client Rep
+    clientRepName: v('clientRepName'),
+    clientRepDesignation: v('clientRepDesignation'),
+    clientRepPhone: v('clientRepPhone'),
+    clientRepEmail: v('clientRepEmail'),
+    clientRepRemarks: v('clientRepRemarks'),
+    // Tech Contact
+    techContactName: v('techContactName'),
+    techContactPosition: v('techContactPosition'),
+    techContactPhone: v('techContactPhone'),
+    techContactRemarks: v('techContactRemarks'),
+    // Overview
+    reqOverview: v('reqOverview'),
+    // Web Filtering
+    allowedList: [...tags.allowed],
+    forbiddenList: [...tags.forbidden],
+    webFilterRemarks: v('webFilterRemarks'),
+    // Network & Voice
+    portsNeeded: [...tags.ports],
+    networkPOI: v('networkPOI'),
+    networkAccessRules: v('networkAccessRules'),
+    ownNetwork: document.getElementById('ownNetwork').checked,
+    ownNetworkDetails: v('ownNetworkDetails'),
+    dedicatedSsid: document.getElementById('dedicatedSsid').checked,
+    ssidName: v('ssidName'),
+    ssidPassword: v('ssidPassword'),
+    maintenanceWindow: v('maintenanceWindow'),
+    phoneHardphone: document.getElementById('phoneHardphone').checked,
+    phoneSoftphone: document.getElementById('phoneSoftphone').checked,
+    networkRemarks: v('networkRemarks'),
+    networkDiagrams: { ...networkFiles },
+    platforms: [...tags.platforms],
+    voiceRemarks: v('voiceRemarks'),
+    networkAdditionalReq: v('networkAdditionalReq'),
+    networkAdditionalFiles: { ...networkAdditionalFiles },
+    // Hardware
+    hwDeviceType: v('hwDeviceType'),
+    hwOwnership: v('hwOwnership'),
+    hardwareRemarks: v('hardwareRemarks'),
+    // Build to Suit
+    btsRemarks: v('btsRemarks'),
+    attachments: { ...attachedFiles }
+  };
+
+  const profiles = getProfiles();
+  if (editingProfileId) {
+    // Update existing profile
+    const idx = profiles.findIndex(p => p.id === editingProfileId);
+    if (idx > -1) profiles[idx] = profile; else profiles.unshift(profile);
+    editingProfileId = null;
+    const banner = document.getElementById('editBanner');
+    if (banner) banner.style.display = 'none';
+  } else {
+    // Check for duplicate company name
+    const exists = profiles.findIndex(p => (p.companyName||'').toLowerCase() === profile.companyName.toLowerCase());
+    if (exists > -1) {
+      if (!confirm(`A profile for "${profile.companyName}" already exists. Overwrite it?`)) return;
+      profiles[exists] = profile;
+    } else {
+      profiles.unshift(profile);
+    }
+  }
+  saveProfiles(profiles);
+  clearDraft();
+  showToast('✓ Profile saved');
+  postToSharePoint(profile);
+  clearForm();
+}
+
+function v(id) {
+  const el = document.getElementById(id);
+  return el ? el.value.trim() : '';
+}
+
+function clearForm() {
+  editingProfileId = null;
+  const banner = document.getElementById('editBanner');
+  if (banner) banner.style.display = 'none';
+  clearDraft();
+  document.getElementById('discoveryForm').reset();
+  ['allowed','forbidden','ports'].forEach(k => { tags[k] = []; renderTags(k); });
+  document.querySelectorAll('.campaign-chip.selected').forEach(el => el.classList.remove('selected'));
+  ['ownNetwork','dedicatedSsid','phoneHardphone','phoneSoftphone','existingClient'].forEach(id => { document.getElementById(id).checked = false; });
+  toggleOwnNetwork(); toggleSsidFields();
+  tags.platforms = []; renderPlatformTags();
+  siteFloors.length = 0; renderSiteFloors();
+  document.getElementById('floor').innerHTML = '<option value="">Select site first…</option>';
+  Object.keys(networkFiles).forEach(k => delete networkFiles[k]); renderNetworkPreviews();
+  Object.keys(networkAdditionalFiles).forEach(k => delete networkAdditionalFiles[k]); renderNetworkAdditionalPreviews();
+  Object.keys(attachedFiles).forEach(k => removeFile(k));
+  updateProgress();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+
+// ── Settings & SharePoint webhook ───────────────────────────────────────────
+function openSettings() {
+  const url = localStorage.getItem('kmc_webhook_url') || '';
+  document.getElementById('webhookUrl').value = url;
+  const status = document.getElementById('webhookStatus');
+  status.textContent = url ? '✓ Webhook URL is configured.' : '';
+  status.style.color = 'var(--success)';
+  document.getElementById('settingsModal').style.display = 'flex';
+}
+function closeSettings() {
+  document.getElementById('settingsModal').style.display = 'none';
+}
+function saveSettings() {
+  const url = document.getElementById('webhookUrl').value.trim();
+  localStorage.setItem('kmc_webhook_url', url);
+  const status = document.getElementById('webhookStatus');
+  status.textContent = url ? '✓ Saved.' : 'Webhook URL cleared.';
+  status.style.color = 'var(--success)';
+  // Update gear icon colour to indicate active connection
+  document.getElementById('settingsBtn').style.color = url ? 'var(--orange)' : 'rgba(255,255,255,.6)';
+  setTimeout(closeSettings, 800);
+}
+
+async function postToSharePoint(profile) {
+  const url = localStorage.getItem('kmc_webhook_url');
+  if (!url) return;
+  // Flatten the profile into simple key/value pairs for Power Automate
+  const payload = {
+    companyName:          profile.companyName,
+    natureOfBusiness:     profile.natureOfBusiness,
+    projectedSeats:       profile.projectedSeats,
+    accountManager:       profile.accountManager,
+    sitesFloors:          (profile.sites||[]).map(e => e.floor ? `${e.site} – ${e.floor}` : e.site).join('; '),
+    headcount:            profile.headcount,
+    clientType:           profile.clientType,
+    isVip:                profile.isVip,
+    existingClient:       profile.existingClient ? 'Yes' : 'No',
+    ospLink:              profile.ospLink,
+    leadSource:           profile.leadSource,
+    brokerName:           profile.brokerName,
+    leadSourceDetails:    profile.leadSourceDetails,
+    campaignTypes:        (profile.campaignTypes||[]).join(', '),
+    clientRepName:        profile.clientRepName,
+    clientRepDesignation: profile.clientRepDesignation,
+    clientRepPhone:       profile.clientRepPhone,
+    clientRepEmail:       profile.clientRepEmail,
+    clientRepRemarks:     profile.clientRepRemarks,
+    techContactName:      profile.techContactName,
+    techContactPosition:  profile.techContactPosition,
+    techContactPhone:     profile.techContactPhone,
+    techContactRemarks:   profile.techContactRemarks,
+    reqOverview:          profile.reqOverview,
+    hwDeviceType:         profile.hwDeviceType,
+    hwOwnership:          profile.hwOwnership,
+    hardwareRemarks:      profile.hardwareRemarks,
+    portsNeeded:          (profile.portsNeeded||[]).join(', '),
+    ownNetwork:           profile.ownNetwork ? 'Yes' : 'No',
+    ownNetworkDetails:    profile.ownNetworkDetails,
+    dedicatedSsid:        profile.dedicatedSsid ? 'Yes' : 'No',
+    ssidName:             profile.ssidName,
+    ssidPassword:         profile.ssidPassword,
+    maintenanceWindow:    profile.maintenanceWindow,
+    phoneType:            [profile.phoneHardphone && 'Hardphone', profile.phoneSoftphone && 'Softphone'].filter(Boolean).join(', '),
+    networkPOI:           profile.networkPOI,
+    networkAccessRules:   profile.networkAccessRules,
+    networkRemarks:       profile.networkRemarks,
+    platforms:            (profile.platforms||[]).map(p => p.url ? `${p.name} (${p.url})` : p.name).join(', '),
+    platformRemarks:      profile.voiceRemarks,
+    allowedList:          (profile.allowedList||[]).join(', '),
+    forbiddenList:        (profile.forbiddenList||[]).join(', '),
+    webFilterRemarks:     profile.webFilterRemarks,
+    btsRemarks:           profile.btsRemarks,
+    additionalReq:        profile.networkAdditionalReq,
+    savedAt:              profile.savedAt,
+  };
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    console.warn('SharePoint webhook failed:', err);
+    showToast('⚠ SharePoint sync failed — profile saved locally', true);
+  }
+}
+// ────────────────────────────────────────────────────────────────────────────
+
+function showToast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isError ? ' error' : '');
+  setTimeout(() => t.className = 'toast', 3500);
+}
+
+function exportJSON(silent = false) {
+  const data = getProfiles();
+  if (!data.length) { showToast('No profiles to export', true); return; }
+
+  const rows = data.map(p => ({
+    'Company Name': p.companyName || '',
+    'Nature of Business': p.natureOfBusiness || '',
+    'Projected Seats': p.projectedSeats || '',
+    'Account Manager': p.accountManager || '',
+    'Sites & Floors': (p.sites || []).map(e => e.floor ? `${e.site} — ${e.floor}` : e.site).join('; '),
+    'Headcount': p.headcount || '',
+    'Client Type': p.clientType || '',
+    'VIP': p.isVip || '',
+    'Existing Client': p.existingClient ? 'Yes' : 'No',
+    'OSP Organization Link': p.ospLink || '',
+    'Lead Source': p.leadSource || '',
+    'Broker Name': p.brokerName || '',
+    'Lead Source Details': p.leadSourceDetails || '',
+    'Campaign Types': (p.campaignTypes || []).join(', '),
+    // Client Rep
+    'Client Rep Name': p.clientRepName || '',
+    'Client Rep Designation': p.clientRepDesignation || '',
+    'Client Rep Phone': p.clientRepPhone || '',
+    'Client Rep Email': p.clientRepEmail || '',
+    'Client Rep Remarks': p.clientRepRemarks || '',
+    // Tech Contact
+    'Tech Contact Name': p.techContactName || '',
+    'Tech Contact Position': p.techContactPosition || '',
+    'Tech Contact Phone': p.techContactPhone || '',
+    'Tech Contact Remarks': p.techContactRemarks || '',
+    // Overview
+    'Requirements Overview': p.reqOverview || '',
+    // Hardware
+    'Device Type': p.hwDeviceType || '',
+    'Ownership / Procurement': p.hwOwnership || '',
+    'Hardware Remarks': p.hardwareRemarks || '',
+    // Network & Voice
+    'Ports Needed': (p.portsNeeded || []).join(', '),
+    'Own Network': p.ownNetwork ? 'Yes' : 'No',
+    'Own Network Details': p.ownNetworkDetails || '',
+    'Dedicated SSID': p.dedicatedSsid ? 'Yes' : 'No',
+    'SSID Name': p.ssidName || '',
+    'SSID Password': p.ssidPassword || '',
+    'Maintenance Window': p.maintenanceWindow || '',
+    'Phone Type': [p.phoneHardphone && 'Hardphone', p.phoneSoftphone && 'Softphone'].filter(Boolean).join(', '),
+    'Points of Interest': p.networkPOI || '',
+    'Custom Access Rules': p.networkAccessRules || '',
+    'Network Remarks': p.networkRemarks || '',
+    'Platforms / Applications': (p.platforms || []).map(pl => pl.url ? `${pl.name} (${pl.url})` : pl.name).join(', '),
+    'Platform Remarks': p.voiceRemarks || '',
+    // Web Filtering
+    'Allowed List': (p.allowedList || []).join(', '),
+    'Forbidden List': (p.forbiddenList || []).join(', '),
+    'Web Filter Remarks': p.webFilterRemarks || '',
+    // Build to Suit
+    'BTS Remarks': p.btsRemarks || '',
+    // Additional
+    'Additional Requirements': p.networkAdditionalReq || '',
+    'Saved At': p.savedAt ? new Date(p.savedAt).toLocaleString() : '',
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+
+  // Auto-width columns
+  const colWidths = Object.keys(rows[0]).map(key => ({
+    wch: Math.max(key.length, ...rows.map(r => String(r[key] || '').length), 12)
+  }));
+  ws['!cols'] = colWidths;
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Client Profiles');
+  XLSX.writeFile(wb, 'KMC_Client_Profiles_' + new Date().toISOString().slice(0,10) + '.xlsx');
+  if (!silent) showToast('✓ Exported ' + data.length + ' profiles to Excel');
+}
+function importJSON(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!Array.isArray(data)) throw new Error();
+      const existing = getProfiles();
+      let added = 0;
+      data.forEach(p => {
+        const idx = existing.findIndex(e => e.companyName?.toLowerCase() === p.companyName?.toLowerCase());
+        if (idx > -1) existing[idx] = p; else { existing.unshift(p); added++; }
+      });
+      saveProfiles(existing);
+      showToast(`✓ Imported ${data.length} profiles (${added} new)`);
+    } catch { showToast('Import failed: invalid file', true); }
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+
+// Restore draft on page load
+if (localStorage.getItem(DRAFT_KEY)) {
+  restoreDraft();
+  showToast('📋 Draft restored — your last entries are back');
+}
+
+updateProgress();
+
+// Restore gear icon colour if webhook already configured
+if (localStorage.getItem('kmc_webhook_url')) {
+  const btn = document.getElementById('settingsBtn');
+  if (btn) btn.style.color = 'var(--orange)';
+}
+
+// ── Import from Excel template ────────────────────────────────────────────────
+function importTemplate(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+      // Build key→value map from column A (key) and column C (answer)
+      const data = {};
+      rows.forEach(row => {
+        const key = String(row[0] || '').trim();
+        const val = String(row[2] || '').trim();
+        if (key && val) data[key] = val;
+      });
+
+      if (!Object.keys(data).length) { showToast('No data found in template', true); return; }
+
+      // Simple text/select fields
+      const simple = ['companyName','natureOfBusiness','projectedSeats','headcount',
+        'clientRepName','clientRepDesignation','clientRepPhone','clientRepEmail','clientRepRemarks',
+        'techContactName','techContactPosition','techContactPhone','techContactRemarks',
+        'reqOverview','hwDeviceType','hwOwnership','hardwareRemarks','ownNetworkDetails',
+        'networkPOI','networkAccessRules','networkRemarks',
+        'ssidName','ssidPassword','maintenanceWindow','voiceRemarks',
+        'webFilterRemarks','btsRemarks'];
+      simple.forEach(id => {
+        if (data[id] !== undefined) {
+          const el = document.getElementById(id);
+          if (el) el.value = data[id];
+        }
+      });
+
+      // Map networkAdditionalReq from template key 'additionalReq'
+      if (data['additionalReq']) {
+        const el = document.getElementById('networkAdditionalReq');
+        if (el) el.value = data['additionalReq'];
+      }
+
+      // clientType select
+      if (data['clientType']) {
+        const el = document.getElementById('clientType');
+        if (el) {
+          const opt = [...el.options].find(o => o.value.toLowerCase().includes(data['clientType'].toLowerCase()));
+          if (opt) el.value = opt.value;
+        }
+      }
+
+      // isVip select
+      if (data['isVip']) {
+        const el = document.getElementById('isVip');
+        if (el) el.value = data['isVip'];
+      }
+
+      // Checkboxes (Yes/No)
+      ['ownNetwork','dedicatedSsid'].forEach(id => {
+        if (data[id]) {
+          const el = document.getElementById(id);
+          if (el) el.checked = data[id].toLowerCase() === 'yes';
+        }
+      });
+      toggleOwnNetwork(); toggleSsidFields();
+
+      // Phone type
+      if (data['phoneType']) {
+        const val = data['phoneType'].toLowerCase();
+        const hard = document.getElementById('phoneHardphone');
+        const soft = document.getElementById('phoneSoftphone');
+        if (hard) hard.checked = val.includes('hardphone') || val.includes('both');
+        if (soft) soft.checked = val.includes('softphone') || val.includes('both');
+      }
+
+      // Campaign chips
+      if (data['campaignTypes']) {
+        const types = data['campaignTypes'].split(',').map(s => s.trim().toLowerCase());
+        document.querySelectorAll('.campaign-chip').forEach(chip => {
+          if (types.includes(chip.textContent.trim().toLowerCase())) chip.classList.add('selected');
+        });
+      }
+
+      // Tag fields (comma-separated)
+      if (data['portsNeeded']) { tags.ports = data['portsNeeded'].split(',').map(s=>s.trim()).filter(Boolean); renderTags('ports'); }
+      if (data['allowedList']) { tags.allowed = data['allowedList'].split(',').map(s=>s.trim()).filter(Boolean); renderTags('allowed'); }
+      if (data['forbiddenList']) { tags.forbidden = data['forbiddenList'].split(',').map(s=>s.trim()).filter(Boolean); renderTags('forbidden'); }
+
+      // Platforms (comma-separated names)
+      if (data['platforms']) {
+        tags.platforms = data['platforms'].split(',').map(s => ({ name: s.trim(), url: '' })).filter(p => p.name);
+        renderPlatformTags();
+      }
+
+      // Sites & floors — format: "Site — Floor, Site2 — Floor2" or just "Site"
+      if (data['sitesFloors']) {
+        siteFloors.length = 0;
+        data['sitesFloors'].split(',').forEach(entry => {
+          const parts = entry.split(/[-–—]+/).map(s => s.trim());
+          if (parts[0]) siteFloors.push({ site: parts[0], floor: parts[1] || '' });
+        });
+        renderSiteFloors();
+      }
+
+      updateProgress();
+      showToast('✓ Template imported — please review and complete any missing fields');
+    } catch(err) {
+      showToast('Import failed — make sure you are using the KMC intake template', true);
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  input.value = '';
+}
+
+// Restore last active tab
+setTimeout(() => {
+  try {
+    if (localStorage.getItem('kmc_active_tab') === 'profiles') switchTab('profiles');
+  } catch(e) { console.error('Tab restore error:', e); }
+}, 0);
+
+// ── Tab switching ────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  const isProfiles = tab === 'profiles';
+  localStorage.setItem('kmc_active_tab', tab);
+  document.getElementById('tab-form').classList.toggle('active', !isProfiles);
+  document.getElementById('tab-profiles').classList.toggle('active', isProfiles);
+  const layout = document.querySelector('.layout');
+  if (layout) layout.style.display = isProfiles ? 'none' : 'flex';
+  const footer = document.querySelector('.form-footer');
+  if (footer) footer.style.display = isProfiles ? 'none' : 'flex';
+  const pv = document.getElementById('profilesView');
+  if (pv) pv.style.display = isProfiles ? 'block' : 'none';
+  if (isProfiles) {
+    const raw = localStorage.getItem('kmc_client_profiles');
+    const count = raw ? JSON.parse(raw).length : 0;
+    const counter = document.getElementById('profileCount');
+    if (counter) counter.textContent = count ? `(${count} saved)` : '(none saved)';
+    try { renderProfilesTable(); } catch(e) { console.error('renderProfilesTable error:', e); }
+  }
+}
+
+// ── Profiles table ────────────────────────────────────────────────────────────
+function renderProfilesTable() {
+  const q = (document.getElementById('profileSearch')?.value || '').toLowerCase();
+  const all = getProfiles();
+  _filteredProfiles = q ? all.filter(p =>
+    (p.companyName||'').toLowerCase().includes(q) ||
+    (p.accountManager||'').toLowerCase().includes(q) ||
+    (p.clientType||'').toLowerCase().includes(q) ||
+    (p.natureOfBusiness||'').toLowerCase().includes(q) ||
+    (p.leadSource||'').toLowerCase().includes(q)
+  ) : all;
+
+  const counter = document.getElementById('profileCount');
+  if (counter) counter.textContent = all.length ? `(${all.length})` : '';
+
+  const container = document.getElementById('profilesTableContainer');
+  if (!container) return;
+  if (!_filteredProfiles.length) {
+    container.innerHTML = `<div class="profiles-empty"><div style="font-size:40px">📋</div><p>${all.length ? 'No results match your search.' : 'No profiles saved yet. Fill in the form and save a profile to see it here.'}</p></div>`;
+    return;
+  }
+
+  const rows = _filteredProfiles.map((p, i) => {
+    let saved = '—';
+    try { saved = p.savedAt ? new Date(p.savedAt).toLocaleDateString(undefined, {month:'short',day:'numeric',year:'numeric'}) : '—'; } catch {}
+    const badges = [
+      p.isVip === 'Yes' ? '<span class="badge badge-vip">VIP</span>' : '',
+      p.existingClient ? '<span class="badge badge-existing">Existing</span>' : '<span class="badge badge-new">New</span>',
+    ].filter(Boolean).join(' ');
+    return `<tr>
+      <td><div class="company-name">${esc(p.companyName||'—')}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${esc(p.natureOfBusiness||'')}</div></td>
+      <td>${esc(p.accountManager||'—')}</td>
+      <td>${esc(p.clientType||'—')}</td>
+      <td>${esc(p.projectedSeats||'—')}</td>
+      <td>${badges}</td>
+      <td style="color:var(--muted);font-size:13px;white-space:nowrap">${saved}</td>
+      <td style="white-space:nowrap;display:flex;gap:6px;align-items:center">
+        <button class="btn-view" onclick="openDetail(${i})">View</button>
+        <button class="btn-view" onclick="editProfile(${i})" style="border-color:var(--orange);color:var(--orange)">Edit</button>
+        <button class="btn-del" title="Delete" onclick="deleteProfile(${i})">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  container.innerHTML = `<table class="profiles-table">
+    <thead><tr>
+      <th>Company</th><th>Account Manager</th><th>Client Type</th><th>Seats</th><th>Status</th><th>Saved</th><th></th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function filterProfiles() { renderProfilesTable(); }
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function deleteProfile(idx) {
+  const p = _filteredProfiles[idx];
+  if (!confirm(`Delete profile for "${p.companyName}"? This cannot be undone.`)) return;
+  const all = getProfiles();
+  const realIdx = all.findIndex(x => x.id === p.id);
+  if (realIdx > -1) { all.splice(realIdx, 1); saveProfiles(all); }
+  renderProfilesTable();
+  showToast('Profile deleted');
+}
+
+function openDetail(idx) {
+  const p = _filteredProfiles[idx];
+  document.getElementById('detailModalTitle').textContent = p.companyName || 'Profile Details';
+
+  const field = (label, val, full=false) => val
+    ? `<div class="detail-field${full?' full':''}"><label>${label}</label><span>${esc(val)}</span></div>`
+    : '';
+
+  const sites = (p.sites||[]).map(e => e.floor ? `${e.site} — ${e.floor}` : e.site).join('; ');
+  const platforms = (p.platforms||[]).map(pl => pl.url ? `${pl.name} (${pl.url})` : pl.name).join(', ');
+
+  document.getElementById('detailModalBody').innerHTML = `
+    <div class="detail-group">
+      <h4>Company Information</h4>
+      <div class="detail-grid">
+        ${field('Company Name', p.companyName)}
+        ${field('Nature of Business', p.natureOfBusiness)}
+        ${field('Projected Seats', p.projectedSeats)}
+        ${field('Headcount', p.headcount)}
+        ${field('Account Manager', p.accountManager)}
+        ${field('Client Type', p.clientType)}
+        ${field('VIP', p.isVip)}
+        ${field('Existing Client', p.existingClient ? 'Yes' : 'No')}
+        ${field('Lead Source', p.leadSource)}
+        ${field('Broker Name', p.brokerName)}
+        ${field('Lead Source Details', p.leadSourceDetails)}
+        ${field('Campaign Types', (p.campaignTypes||[]).join(', '))}
+        ${field('Sites & Floors', sites, true)}
+        ${field('OSP Organization Link', p.ospLink, true)}
+      </div>
+    </div>
+    <div class="detail-group">
+      <h4>Client Representative</h4>
+      <div class="detail-grid">
+        ${field('Name', p.clientRepName)}
+        ${field('Designation', p.clientRepDesignation)}
+        ${field('Phone', p.clientRepPhone)}
+        ${field('Email', p.clientRepEmail)}
+        ${field('Remarks', p.clientRepRemarks, true)}
+      </div>
+    </div>
+    <div class="detail-group">
+      <h4>Technical Contact</h4>
+      <div class="detail-grid">
+        ${field('Name', p.techContactName)}
+        ${field('Position', p.techContactPosition)}
+        ${field('Phone', p.techContactPhone)}
+        ${field('Remarks', p.techContactRemarks, true)}
+      </div>
+    </div>
+    <div class="detail-group">
+      <h4>Hardware</h4>
+      <div class="detail-grid">
+        ${field('Device Type', p.hwDeviceType)}
+        ${field('Ownership / Procurement', p.hwOwnership)}
+        ${field('Remarks', p.hardwareRemarks, true)}
+      </div>
+    </div>
+    <div class="detail-group">
+      <h4>Network & Voice</h4>
+      <div class="detail-grid">
+        ${field('Own Network', p.ownNetwork ? 'Yes' : 'No')}
+        ${field('Own Network Details', p.ownNetworkDetails)}
+        ${field('Dedicated SSID', p.dedicatedSsid ? 'Yes' : 'No')}
+        ${field('SSID Name', p.ssidName)}
+        ${field('SSID Password', p.ssidPassword)}
+        ${field('Maintenance Window', p.maintenanceWindow)}
+        ${field('Phone Type', [p.phoneHardphone&&'Hardphone',p.phoneSoftphone&&'Softphone'].filter(Boolean).join(', '))}
+        ${field('Ports Needed', (p.portsNeeded||[]).join(', '))}
+        ${field('Platforms / Applications', platforms, true)}
+        ${field('Platform Remarks', p.voiceRemarks, true)}
+        ${field('Points of Interest', p.networkPOI, true)}
+        ${field('Custom Access Rules', p.networkAccessRules, true)}
+        ${field('Network Remarks', p.networkRemarks, true)}
+      </div>
+    </div>
+    <div class="detail-group">
+      <h4>Web Content Filtering</h4>
+      <div class="detail-grid">
+        ${field('Allowed List', (p.allowedList||[]).join(', '), true)}
+        ${field('Forbidden List', (p.forbiddenList||[]).join(', '), true)}
+        ${field('Web Filter Remarks', p.webFilterRemarks, true)}
+      </div>
+    </div>
+    <div class="detail-group">
+      <h4>Requirements & Additional Notes</h4>
+      <div class="detail-grid">
+        ${field('Requirements Overview', p.reqOverview, true)}
+        ${field('Build to Suit Remarks', p.btsRemarks, true)}
+        ${field('Additional Requirements', p.networkAdditionalReq, true)}
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-top:8px">Saved: ${p.savedAt ? new Date(p.savedAt).toLocaleString() : '—'}</div>
+  `;
+
+  document.getElementById('detailModal').classList.add('open');
+}
+
+function closeDetail() {
+  document.getElementById('detailModal').classList.remove('open');
+}
+
+// Close detail modal on backdrop click
+document.getElementById('detailModal').addEventListener('click', function(e) {
+  if (e.target === this) closeDetail();
+});
+</script>
+</body>
+</html>
