@@ -1917,8 +1917,9 @@ function getExportData() {
 // Full profile laid out as titled sections of [label, value] — used by PDF & Word.
 function profileToGroups(p) {
   const j = a => (a || []).join(', ');
+  // Each attachment row is [label, filename, url] — the url (3rd element) makes it a clickable link on export.
   const fileNames = () => ['networkDiagrams','networkAdditionalFiles','attachments']
-    .flatMap(k => Object.values(p[k] || {}).map(f => ['File', f.webUrl ? `${f.name} — ${f.webUrl}` : f.name]));
+    .flatMap(k => Object.values(p[k] || {}).map(f => ['File', f.name, f.webUrl || '']));
   return [
     ['Company Information', [
       ['Company Name', p.companyName], ['Nature of Business', p.natureOfBusiness],
@@ -2003,11 +2004,19 @@ function exportPDF() {
       y = wrap(heading, margin, y + 10, 15);
       doc.setDrawColor(225); doc.line(margin, y - 4, pw - margin, y - 4); y += 4;
       doc.setFontSize(10); doc.setTextColor(35);
-      rows.forEach(([label, value]) => {
+      rows.forEach(([label, value, url]) => {
         doc.setFont('helvetica', 'bold');
         y = wrap(label + ':', margin, y, 13);
         doc.setFont('helvetica', 'normal');
-        y = wrap(String(value), margin + 12, y, 13) + 2;
+        if (url) {
+          if (y > ph - margin) { doc.addPage(); y = margin; }
+          doc.setTextColor(0, 0, 238);
+          doc.textWithLink(String(value), margin + 12, y, { url });
+          doc.setTextColor(35);
+          y += 15;
+        } else {
+          y = wrap(String(value), margin + 12, y, 13) + 2;
+        }
       });
     });
   });
@@ -2031,9 +2040,12 @@ function exportDOCX() {
       const rows = fields.filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== '');
       if (!rows.length) return;
       children.push(new D.Paragraph({ text: heading, heading: D.HeadingLevel.HEADING_2, spacing: { before: 200 } }));
-      rows.forEach(([label, value]) => children.push(new D.Paragraph({
-        children: [new D.TextRun({ text: label + ': ', bold: true }), new D.TextRun({ text: String(value) })]
-      })));
+      rows.forEach(([label, value, url]) => {
+        const valueRun = url
+          ? new D.ExternalHyperlink({ link: url, children: [new D.TextRun({ text: String(value), style: 'Hyperlink' })] })
+          : new D.TextRun({ text: String(value) });
+        children.push(new D.Paragraph({ children: [new D.TextRun({ text: label + ': ', bold: true }), valueRun] }));
+      });
     });
   });
   const doc = new D.Document({ sections: [{ children }] });
