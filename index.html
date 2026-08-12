@@ -316,19 +316,27 @@
 <div id="settingsModal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center">
   <div style="background:white;border-radius:12px;width:520px;max-width:95vw;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)">
     <div style="background:var(--navy);padding:16px 20px;display:flex;align-items:center;justify-content:space-between">
-      <div style="font-family:'Barlow Condensed',sans-serif;color:white;font-size:18px;font-weight:700">SharePoint Integration</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;color:white;font-size:18px;font-weight:700">Shared Repository (SharePoint)</div>
       <button onclick="closeSettings()" style="background:none;border:none;color:rgba(255,255,255,.6);font-size:20px;cursor:pointer;line-height:1">✕</button>
     </div>
     <div style="padding:20px">
-      <p style="font-size:14px;color:var(--muted);margin-bottom:16px">Paste your Power Automate HTTP trigger URL below. Every time a profile is saved it will be sent to your SharePoint Excel file automatically.</p>
+      <p style="font-size:14px;color:var(--muted);margin-bottom:16px">Connect the form to the shared <b>SharePoint List</b> that everyone reads from and writes to. Set this once — it applies to every user who signs in. See the setup guide for how to create the list and grant access.</p>
       <div class="form-group">
-        <label>Power Automate Webhook URL</label>
-        <input type="text" id="webhookUrl" placeholder="https://prod-xx.westus.logic.azure.com/workflows/…" style="font-size:13px">
+        <label>SharePoint hostname</label>
+        <input type="text" id="spHostname" placeholder="kmcsolutions.sharepoint.com" style="font-size:13px">
       </div>
-      <div id="webhookStatus" style="margin-top:10px;font-size:13px"></div>
+      <div class="form-group">
+        <label>Site path</label>
+        <input type="text" id="spSitePath" placeholder="/sites/TechnologyServices" style="font-size:13px">
+      </div>
+      <div class="form-group">
+        <label>List name</label>
+        <input type="text" id="spListName" placeholder="Client Profiles" style="font-size:13px">
+      </div>
+      <div id="spStatus" style="margin-top:10px;font-size:13px"></div>
       <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">
         <button class="btn btn-secondary" onclick="closeSettings()">Cancel</button>
-        <button class="btn btn-primary" onclick="saveSettings()">Save</button>
+        <button class="btn btn-primary" onclick="saveSettings()">Save &amp; connect</button>
       </div>
     </div>
   </div>
@@ -371,20 +379,20 @@
         <div class="section-body">
           <div class="form-grid">
             <div class="form-group">
-              <label>Company Name <span style="color:#dc2626">*</span></label>
-              <input type="text" id="companyName" placeholder="e.g. Acme Corporation" required oninput="updateProgress()">
+              <label>Company Name</label>
+              <input type="text" id="companyName" placeholder="e.g. Acme Corporation" oninput="updateProgress()">
             </div>
             <div class="form-group">
-              <label>Nature of Business <span style="color:#dc2626">*</span></label>
-              <input type="text" id="natureOfBusiness" placeholder="e.g. BPO / Contact Center" required oninput="updateProgress()">
+              <label>Nature of Business</label>
+              <input type="text" id="natureOfBusiness" placeholder="e.g. BPO / Contact Center" oninput="updateProgress()">
             </div>
             <div class="form-group">
-              <label>Projected # of Seats <span style="color:#dc2626">*</span></label>
-              <input type="number" id="projectedSeats" placeholder="e.g. 50" min="1" required oninput="updateProgress()">
+              <label>Projected # of Seats</label>
+              <input type="number" id="projectedSeats" placeholder="e.g. 50" min="1" oninput="updateProgress()">
             </div>
             <div class="form-group">
-              <label>Account Manager <span style="color:#dc2626">*</span></label>
-              <input type="text" id="accountManager" placeholder="e.g. John Santos" required oninput="updateProgress()">
+              <label>Account Manager</label>
+              <input type="text" id="accountManager" placeholder="e.g. John Santos" oninput="updateProgress()">
             </div>
             <div class="form-group span-2">
               <label>Sites &amp; Floors</label>
@@ -514,8 +522,8 @@
         <div class="section-body">
           <div class="form-grid">
             <div class="form-group">
-              <label>Full Name <span style="color:#dc2626">*</span></label>
-              <input type="text" id="clientRepName" placeholder="e.g. Maria Santos" required oninput="updateProgress()">
+              <label>Full Name</label>
+              <input type="text" id="clientRepName" placeholder="e.g. Maria Santos" oninput="updateProgress()">
             </div>
             <div class="form-group">
               <label>Company Designation</label>
@@ -579,8 +587,8 @@
         </div>
         <div class="section-body">
           <div class="form-group">
-            <label>Overview <span style="color:#dc2626">*</span></label>
-            <textarea id="reqOverview" class="tall" placeholder="Describe the client's overall IT requirements, scope of work, key priorities, and any special considerations…" required oninput="updateProgress()"></textarea>
+            <label>Overview</label>
+            <textarea id="reqOverview" class="tall" placeholder="Describe the client's overall IT requirements, scope of work, key priorities, and any special considerations…" oninput="updateProgress()"></textarea>
           </div>
         </div>
       </div>
@@ -867,8 +875,10 @@
     <div class="profiles-toolbar">
       <h2>Client Profiles <span id="profileCount" style="font-size:14px;font-weight:400;color:var(--muted)"></span></h2>
       <input class="profiles-search" type="text" id="profileSearch" placeholder="Search by company, AM, client type…" oninput="filterProfiles()">
+      <button class="btn btn-secondary btn-sm" onclick="refreshRepo()" title="Reload the shared repository">↻ Refresh</button>
       <button class="btn btn-secondary btn-sm" onclick="exportJSON()">⬇ Export to Excel</button>
     </div>
+    <div id="repoBanner" style="display:none;font-size:13px;padding:10px 14px;border-radius:8px;margin-bottom:12px"></div>
     <div class="profiles-table-wrap">
       <div id="profilesTableContainer"></div>
     </div>
@@ -904,7 +914,7 @@ const msalInstance = new msal.PublicClientApplication(msalConfig);
 function signIn() {
   document.getElementById('signInBtn').style.display = 'none';
   document.getElementById('authSpinner').style.display = 'block';
-  msalInstance.loginRedirect({ scopes: ['User.Read'] });
+  msalInstance.loginRedirect({ scopes: ['User.Read', 'Sites.ReadWrite.All'] });
 }
 
 function signOut() {
@@ -928,6 +938,8 @@ msalInstance.handleRedirectPromise().then(response => {
   if (account) {
     msalInstance.setActiveAccount(account);
     showApp(account);
+    // Pull the shared repository as soon as we know who's signed in
+    initCentralRepo();
   } else {
     // No session — keep overlay visible, show sign-in button
     document.getElementById('authSpinner').style.display = 'none';
@@ -940,6 +952,256 @@ msalInstance.handleRedirectPromise().then(response => {
   document.getElementById('authSpinner').style.display = 'none';
   document.getElementById('signInBtn').style.display = 'flex';
 });
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Centralized repository (SharePoint List via Microsoft Graph) ──────────────
+// Every signed-in user reads from and writes to ONE shared SharePoint List, so
+// the Profiles tab shows everyone's entries — not just what's on this browser.
+// localStorage is kept only as an offline mirror of the shared list.
+const GRAPH_BASE   = 'https://graph.microsoft.com/v1.0';
+const GRAPH_SCOPES = ['Sites.ReadWrite.All'];
+const SP_CONFIG_KEY = 'kmc_sp_config';   // { hostname, sitePath, listName, siteId, listId }
+// File uploads go to a SharePoint document library; only lightweight references
+// (filename + link) live in ProfileJSON, so attachments are shared too. Nothing
+// is local-only now.
+const LOCAL_ONLY_FIELDS = [];
+const ATTACH_FOLDER = 'Client Profile Attachments';   // auto-created in the site's Documents library
+let _repoReady = false;   // true once the shared list is reachable & configured
+
+function getSpConfig() {
+  try { return JSON.parse(localStorage.getItem(SP_CONFIG_KEY) || 'null'); } catch { return null; }
+}
+function spConfigured() {
+  const c = getSpConfig();
+  return !!(c && c.hostname && c.sitePath && c.listName);
+}
+
+// Acquire a Graph token for the signed-in user (silent, with redirect fallback).
+async function getGraphToken() {
+  const account = msalInstance.getActiveAccount() || msalInstance.getAllAccounts()[0];
+  if (!account) throw new Error('Not signed in');
+  try {
+    const res = await msalInstance.acquireTokenSilent({ scopes: GRAPH_SCOPES, account });
+    return res.accessToken;
+  } catch (e) {
+    // Consent / interaction required — send the user through a redirect to grant it.
+    if (e instanceof msal.InteractionRequiredAuthError || /interaction_required|consent|login_required/i.test(e.message||'')) {
+      await msalInstance.acquireTokenRedirect({ scopes: GRAPH_SCOPES, account });
+    }
+    throw e;
+  }
+}
+
+async function graph(path, opts = {}) {
+  const token = await getGraphToken();
+  const res = await fetch(GRAPH_BASE + path, {
+    ...opts,
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', ...(opts.headers||{}) }
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Graph ${res.status}: ${body.slice(0, 300)}`);
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+// Resolve the site + list IDs from the admin-provided hostname / path / list name,
+// caching them back into the stored config so we only look them up once.
+async function resolveSiteAndList() {
+  const cfg = getSpConfig();
+  if (!cfg) throw new Error('Shared repository is not configured yet.');
+  if (cfg.siteId && cfg.listId) return cfg;
+  const relPath = cfg.sitePath.replace(/^\/+|\/+$/g, '');
+  const site = await graph(`/sites/${encodeURIComponent(cfg.hostname)}:/${relPath}`);
+  cfg.siteId = site.id;
+  const lists = await graph(`/sites/${cfg.siteId}/lists?$filter=displayName eq '${cfg.listName.replace(/'/g,"''")}'`);
+  const list = (lists.value || [])[0];
+  if (!list) throw new Error(`List "${cfg.listName}" was not found on that site.`);
+  cfg.listId = list.id;
+  localStorage.setItem(SP_CONFIG_KEY, JSON.stringify(cfg));
+  return cfg;
+}
+
+// Map a SharePoint list item -> the profile object the app already understands.
+function itemToProfile(item) {
+  const f = item.fields || {};
+  let p = {};
+  try { p = JSON.parse(f.ProfileJSON || '{}'); } catch {}
+  p.spItemId = item.id;               // needed for later update / delete
+  p.id = p.id || f.ProfileId || item.id;
+  return p;
+}
+
+// Map a profile object -> the SharePoint list item fields.
+function profileToFields(profile) {
+  const light = { ...profile };
+  LOCAL_ONLY_FIELDS.forEach(k => delete light[k]);
+  delete light.spItemId;
+  return {
+    Title:          profile.companyName || '(unnamed)',
+    AccountManager: profile.accountManager || '',
+    ClientType:     profile.clientType || '',
+    ProjectedSeats: profile.projectedSeats || '',
+    VIP:            profile.isVip || '',
+    SavedBy:        (msalInstance.getActiveAccount()?.username) || '',
+    SavedAt:        profile.savedAt || '',
+    ProfileId:      profile.id || '',
+    ProfileJSON:    JSON.stringify(light),
+  };
+}
+
+// Pull EVERY profile from the shared list (paginated) into the local mirror.
+async function syncFromSharePoint() {
+  const cfg = await resolveSiteAndList();
+  let url = `/sites/${cfg.siteId}/lists/${cfg.listId}/items?expand=fields&$top=200`;
+  const out = [];
+  while (url) {
+    const page = await graph(url);
+    (page.value || []).forEach(it => out.push(itemToProfile(it)));
+    const next = page['@odata.nextLink'];
+    url = next ? next.replace(GRAPH_BASE, '') : null;
+  }
+  out.sort((a, b) => String(b.savedAt || '').localeCompare(String(a.savedAt || '')));
+  saveProfiles(out);   // refresh the local mirror with the shared truth
+  return out;
+}
+
+// Create or update one profile in the shared list. Returns the SharePoint item id.
+async function upsertToSharePoint(profile) {
+  const cfg = await resolveSiteAndList();
+  const fields = profileToFields(profile);
+  if (profile.spItemId) {
+    await graph(`/sites/${cfg.siteId}/lists/${cfg.listId}/items/${profile.spItemId}/fields`,
+      { method: 'PATCH', body: JSON.stringify(fields) });
+    return profile.spItemId;
+  }
+  // No known item yet — check whether another user already created one for this company.
+  const existing = await findItemByCompany(cfg, profile.companyName);
+  if (existing) {
+    await graph(`/sites/${cfg.siteId}/lists/${cfg.listId}/items/${existing}/fields`,
+      { method: 'PATCH', body: JSON.stringify(fields) });
+    return existing;
+  }
+  const created = await graph(`/sites/${cfg.siteId}/lists/${cfg.listId}/items`,
+    { method: 'POST', body: JSON.stringify({ fields }) });
+  return created.id;
+}
+
+async function findItemByCompany(cfg, companyName) {
+  if (!companyName) return null;
+  try {
+    const q = `/sites/${cfg.siteId}/lists/${cfg.listId}/items?expand=fields&$filter=fields/Title eq '${companyName.replace(/'/g,"''")}'`;
+    const res = await graph(q);
+    return (res.value || [])[0]?.id || null;
+  } catch { return null; }
+}
+
+async function deleteFromSharePoint(spItemId) {
+  if (!spItemId) return;
+  const cfg = await resolveSiteAndList();
+  await graph(`/sites/${cfg.siteId}/lists/${cfg.listId}/items/${spItemId}`, { method: 'DELETE' });
+}
+
+// ── File attachments → SharePoint document library ────────────────────────────
+// Actual file bytes are captured in _fileBlobs on upload, then pushed to the
+// site's default Documents library. Only a small {name, webUrl, driveItemId}
+// reference is stored on the profile, so every user can open the files.
+const _fileBlobs = { networkDiagrams: {}, networkAdditionalFiles: {}, attachments: {} };
+
+function _sanitizeSeg(s) { return String(s || '').replace(/[#%*:<>?/\\|"]/g, '_').trim() || '_'; }
+
+// Upload one File to the document library and return the created driveItem.
+async function uploadFileToDrive(cfg, profileId, field, file) {
+  const path = `${ATTACH_FOLDER}/${_sanitizeSeg(profileId)}/${_sanitizeSeg(field)}/${_sanitizeSeg(file.name)}`;
+  const encoded = path.split('/').map(encodeURIComponent).join('/');
+  const token = await getGraphToken();
+  if (file.size <= 4 * 1024 * 1024) {
+    const res = await fetch(`${GRAPH_BASE}/sites/${cfg.siteId}/drive/root:/${encoded}:/content`, {
+      method: 'PUT',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': file.type || 'application/octet-stream' },
+      body: file
+    });
+    if (!res.ok) throw new Error(`Upload failed (${res.status}) for ${file.name}`);
+    return res.json();
+  }
+  // Large file — resumable upload session (uploadUrl is pre-authenticated: no auth header on chunks).
+  const sess = await fetch(`${GRAPH_BASE}/sites/${cfg.siteId}/drive/root:/${encoded}:/createUploadSession`, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ item: { '@microsoft.graph.conflictBehavior': 'replace' } })
+  });
+  if (!sess.ok) throw new Error(`Upload session failed for ${file.name}`);
+  const { uploadUrl } = await sess.json();
+  const chunkSize = 5 * 327680;   // ~1.6 MB, a multiple of 320 KB as Graph requires
+  let start = 0, last = null;
+  while (start < file.size) {
+    const end = Math.min(start + chunkSize, file.size);
+    const r = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Range': `bytes ${start}-${end - 1}/${file.size}` },
+      body: file.slice(start, end)
+    });
+    if (![200, 201, 202].includes(r.status)) throw new Error(`Chunk upload failed for ${file.name}`);
+    if (r.status === 200 || r.status === 201) last = await r.json();
+    start = end;
+  }
+  return last;
+}
+
+// Upload every newly-attached file for a profile, then replace the profile's file
+// entries with shareable references. `blobs` is a snapshot taken before the form clears.
+async function uploadAttachmentsForProfile(profile, blobs) {
+  const cfg = await resolveSiteAndList();
+  const groups = [
+    ['networkDiagrams', blobs.networkDiagrams],
+    ['networkAdditionalFiles', blobs.networkAdditionalFiles],
+    ['attachments', blobs.attachments],
+  ];
+  for (const [field, map] of groups) {
+    profile[field] = profile[field] || {};
+    for (const [name, file] of Object.entries(map || {})) {
+      const item = await uploadFileToDrive(cfg, profile.id, field, file);
+      profile[field][name] = { name, size: file.size, type: file.type, webUrl: item?.webUrl || '', driveItemId: item?.id || '' };
+    }
+  }
+}
+
+// On sign-in: if the shared list is configured, load it; otherwise stay in local mode.
+async function initCentralRepo() {
+  updateRepoBanner();
+  if (!spConfigured()) { _repoReady = false; return; }
+  try {
+    await syncFromSharePoint();
+    _repoReady = true;
+    updateRepoBanner();
+    // If the user is already looking at the Profiles tab, repaint it.
+    if (document.getElementById('profilesView')?.style.display === 'block') {
+      try { renderProfilesTable(); } catch {}
+    }
+  } catch (err) {
+    console.warn('Central repo sync failed:', err);
+    _repoReady = false;
+    updateRepoBanner(err.message);
+  }
+}
+
+function updateRepoBanner(errMsg) {
+  const el = document.getElementById('repoBanner');
+  if (!el) return;
+  if (!spConfigured()) {
+    el.style.display = 'block';
+    el.style.background = '#fff4e5';
+    el.style.color = '#8a5300';
+    el.innerHTML = '⚠ <b>Shared repository not set up.</b> Profiles are only saved on this computer until an admin connects the SharePoint list — click the ⚙ gear icon to configure.';
+  } else if (errMsg) {
+    el.style.display = 'block';
+    el.style.background = '#fdecea';
+    el.style.color = '#8a1c14';
+    el.innerHTML = '⚠ <b>Could not reach the shared repository.</b> Showing this computer’s copy. ' + esc(errMsg);
+  } else {
+    el.style.display = 'none';
+  }
+}
 // ─────────────────────────────────────────────────────────────────────────────
 
 const STORAGE_KEY = 'kmc_client_profiles';
@@ -1118,10 +1380,21 @@ function renderPlatformTags() {
 
 const networkAdditionalFiles = {};
 
+// Render one file preview row — links to SharePoint when the file is already uploaded.
+function _filePreviewRow(f, removeFn) {
+  const size = f.size ? `<span style="font-size:11px;color:var(--muted)">${(f.size/1024).toFixed(0)} KB</span>` : '';
+  const nameHtml = f.webUrl
+    ? `<a class="fname" href="${esc(f.webUrl)}" target="_blank" rel="noopener" title="Open in SharePoint">${esc(f.name)}</a>`
+    : `<span class="fname">${esc(f.name)}</span>`;
+  return `<div class="file-preview"><span>📎</span>${nameHtml}${size}
+    <button type="button" onclick="${removeFn}('${esc(f.name).replace(/'/g,"\\'")}')">✕</button></div>`;
+}
+
 // Network diagram files
 function handleNetworkFiles(input) {
   Array.from(input.files).forEach(file => {
     networkFiles[file.name] = { name: file.name, size: file.size, type: file.type };
+    _fileBlobs.networkDiagrams[file.name] = file;   // keep the bytes for upload
   });
   renderNetworkPreviews();
   updateProgress();
@@ -1129,15 +1402,11 @@ function handleNetworkFiles(input) {
 function renderNetworkPreviews() {
   const prev = document.getElementById('preview-networkDiagrams');
   if (!prev) return;
-  prev.innerHTML = Object.values(networkFiles).map(f => `<div class="file-preview">
-    <span>📎</span>
-    <span class="fname">${f.name}</span>
-    <span style="font-size:11px;color:var(--muted)">${(f.size/1024).toFixed(0)} KB</span>
-    <button type="button" onclick="removeNetworkFile('${f.name}')">✕</button>
-  </div>`).join('');
+  prev.innerHTML = Object.values(networkFiles).map(f => _filePreviewRow(f, 'removeNetworkFile')).join('');
 }
 function removeNetworkFile(name) {
   delete networkFiles[name];
+  delete _fileBlobs.networkDiagrams[name];
   renderNetworkPreviews();
 }
 
@@ -1145,6 +1414,7 @@ function removeNetworkFile(name) {
 function handleNetworkAdditionalFiles(input) {
   Array.from(input.files).forEach(file => {
     networkAdditionalFiles[file.name] = { name: file.name, size: file.size, type: file.type };
+    _fileBlobs.networkAdditionalFiles[file.name] = file;
   });
   renderNetworkAdditionalPreviews();
   updateProgress();
@@ -1152,22 +1422,19 @@ function handleNetworkAdditionalFiles(input) {
 function renderNetworkAdditionalPreviews() {
   const prev = document.getElementById('preview-networkAdditional');
   if (!prev) return;
-  prev.innerHTML = Object.values(networkAdditionalFiles).map(f => `<div class="file-preview">
-    <span>📎</span>
-    <span class="fname">${f.name}</span>
-    <span style="font-size:11px;color:var(--muted)">${(f.size/1024).toFixed(0)} KB</span>
-    <button type="button" onclick="removeNetworkAdditionalFile('${f.name}')">✕</button>
-  </div>`).join('');
+  prev.innerHTML = Object.values(networkAdditionalFiles).map(f => _filePreviewRow(f, 'removeNetworkAdditionalFile')).join('');
 }
 function removeNetworkAdditionalFile(name) {
   delete networkAdditionalFiles[name];
+  delete _fileBlobs.networkAdditionalFiles[name];
   renderNetworkAdditionalPreviews();
 }
 
-// BTS file handling (store metadata only, not binary)
+// BTS file handling — bytes captured for upload to the document library
 function handleFiles(input) {
   Array.from(input.files).forEach(file => {
     attachedFiles[file.name] = { name: file.name, size: file.size, type: file.type, lastModified: file.lastModified };
+    _fileBlobs.attachments[file.name] = file;
   });
   renderFilePreviews();
   updateProgress();
@@ -1175,16 +1442,11 @@ function handleFiles(input) {
 function renderFilePreviews() {
   const prev = document.getElementById('preview-btsAttachments');
   if (!prev) return;
-  const files = Object.values(attachedFiles);
-  prev.innerHTML = files.map(f => `<div class="file-preview">
-    <span>📎</span>
-    <span class="fname">${f.name}</span>
-    <span style="font-size:11px;color:var(--muted)">${(f.size/1024).toFixed(0)} KB</span>
-    <button type="button" onclick="removeFile('${f.name}')">✕</button>
-  </div>`).join('');
+  prev.innerHTML = Object.values(attachedFiles).map(f => _filePreviewRow(f, 'removeFile')).join('');
 }
 function removeFile(name) {
   delete attachedFiles[name];
+  delete _fileBlobs.attachments[name];
   renderFilePreviews();
   updateProgress();
 }
@@ -1349,6 +1611,18 @@ function editProfile(idx) {
   (p.sites||[]).forEach(s => siteFloors.push({...s}));
   renderSiteFloors();
 
+  // Existing attachments (already uploaded to SharePoint) — show them, keep their refs.
+  ['networkDiagrams','networkAdditionalFiles','attachments'].forEach(k => Object.keys(_fileBlobs[k]).forEach(n => delete _fileBlobs[k][n]));
+  Object.keys(networkFiles).forEach(k => delete networkFiles[k]);
+  Object.values(p.networkDiagrams || {}).forEach(f => { networkFiles[f.name] = f; });
+  renderNetworkPreviews();
+  Object.keys(networkAdditionalFiles).forEach(k => delete networkAdditionalFiles[k]);
+  Object.values(p.networkAdditionalFiles || {}).forEach(f => { networkAdditionalFiles[f.name] = f; });
+  renderNetworkAdditionalPreviews();
+  Object.keys(attachedFiles).forEach(k => delete attachedFiles[k]);
+  Object.values(p.attachments || {}).forEach(f => { attachedFiles[f.name] = f; });
+  renderFilePreviews();
+
   // Show editing banner
   let banner = document.getElementById('editBanner');
   if (!banner) {
@@ -1437,9 +1711,9 @@ function saveProfile(e) {
 
   const profiles = getProfiles();
   if (editingProfileId) {
-    // Update existing profile
+    // Update existing profile — carry over the SharePoint item id so we PATCH it
     const idx = profiles.findIndex(p => p.id === editingProfileId);
-    if (idx > -1) profiles[idx] = profile; else profiles.unshift(profile);
+    if (idx > -1) { profile.spItemId = profiles[idx].spItemId; profiles[idx] = profile; } else profiles.unshift(profile);
     editingProfileId = null;
     const banner = document.getElementById('editBanner');
     if (banner) banner.style.display = 'none';
@@ -1448,6 +1722,7 @@ function saveProfile(e) {
     const exists = profiles.findIndex(p => (p.companyName||'').toLowerCase() === profile.companyName.toLowerCase());
     if (exists > -1) {
       if (!confirm(`A profile for "${profile.companyName}" already exists. Overwrite it?`)) return;
+      profile.spItemId = profiles[exists].spItemId;
       profiles[exists] = profile;
     } else {
       profiles.unshift(profile);
@@ -1455,9 +1730,49 @@ function saveProfile(e) {
   }
   saveProfiles(profiles);
   clearDraft();
-  showToast('✓ Profile saved');
-  postToSharePoint(profile);
+  saveProfileToRepo(profile);   // push to the shared SharePoint list (or local-only fallback)
   clearForm();
+}
+
+// Send one profile to the shared repository, then re-sync so the local mirror
+// matches everyone else's view. Falls back to a local-only save if the shared
+// list isn't configured or is unreachable.
+async function saveProfileToRepo(profile) {
+  // Snapshot the just-attached file bytes NOW, before clearForm() wipes the globals.
+  const blobs = {
+    networkDiagrams:        { ..._fileBlobs.networkDiagrams },
+    networkAdditionalFiles: { ..._fileBlobs.networkAdditionalFiles },
+    attachments:            { ..._fileBlobs.attachments },
+  };
+  const hasNewFiles = ['networkDiagrams','networkAdditionalFiles','attachments']
+    .some(k => Object.keys(blobs[k]).length);
+
+  if (!spConfigured()) {
+    showToast('✓ Profile saved (on this computer only — shared list not set up)');
+    return;
+  }
+  showToast(hasNewFiles ? 'Uploading files & saving…' : 'Saving to shared repository…');
+  try {
+    await uploadAttachmentsForProfile(profile, blobs);   // push files first, capture links
+    const spItemId = await upsertToSharePoint(profile);
+    profile.spItemId = spItemId;
+    // Update the mirror entry with its new SharePoint id, then pull the full list.
+    const all = getProfiles();
+    const i = all.findIndex(p => p.id === profile.id);
+    if (i > -1) all[i].spItemId = spItemId;
+    saveProfiles(all);
+    await syncFromSharePoint();
+    _repoReady = true;
+    updateRepoBanner();
+    if (document.getElementById('profilesView')?.style.display === 'block') {
+      try { renderProfilesTable(); } catch {}
+    }
+    showToast('✓ Profile saved to shared repository');
+  } catch (err) {
+    console.warn('Shared save failed:', err);
+    showToast('⚠ Saved on this computer, but could not reach the shared repository', true);
+    updateRepoBanner(err.message);
+  }
 }
 
 function v(id) {
@@ -1481,95 +1796,82 @@ function clearForm() {
   Object.keys(networkFiles).forEach(k => delete networkFiles[k]); renderNetworkPreviews();
   Object.keys(networkAdditionalFiles).forEach(k => delete networkAdditionalFiles[k]); renderNetworkAdditionalPreviews();
   Object.keys(attachedFiles).forEach(k => removeFile(k));
+  ['networkDiagrams','networkAdditionalFiles','attachments'].forEach(k => Object.keys(_fileBlobs[k]).forEach(n => delete _fileBlobs[k][n]));
   updateProgress();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 
-// ── Settings & SharePoint webhook ───────────────────────────────────────────
+// ── Settings: connect to the shared SharePoint List ──────────────────────────
 function openSettings() {
-  const url = localStorage.getItem('kmc_webhook_url') || '';
-  document.getElementById('webhookUrl').value = url;
-  const status = document.getElementById('webhookStatus');
-  status.textContent = url ? '✓ Webhook URL is configured.' : '';
+  const cfg = getSpConfig() || {};
+  document.getElementById('spHostname').value = cfg.hostname || '';
+  document.getElementById('spSitePath').value = cfg.sitePath || '';
+  document.getElementById('spListName').value = cfg.listName || '';
+  const status = document.getElementById('spStatus');
+  status.textContent = spConfigured() ? '✓ Connected to the shared repository.' : '';
   status.style.color = 'var(--success)';
   document.getElementById('settingsModal').style.display = 'flex';
 }
 function closeSettings() {
   document.getElementById('settingsModal').style.display = 'none';
 }
-function saveSettings() {
-  const url = document.getElementById('webhookUrl').value.trim();
-  localStorage.setItem('kmc_webhook_url', url);
-  const status = document.getElementById('webhookStatus');
-  status.textContent = url ? '✓ Saved.' : 'Webhook URL cleared.';
-  status.style.color = 'var(--success)';
-  // Update gear icon colour to indicate active connection
-  document.getElementById('settingsBtn').style.color = url ? 'var(--orange)' : 'rgba(255,255,255,.6)';
-  setTimeout(closeSettings, 800);
+async function saveSettings() {
+  const hostname = document.getElementById('spHostname').value.trim();
+  const sitePath = document.getElementById('spSitePath').value.trim();
+  const listName = document.getElementById('spListName').value.trim();
+  const status = document.getElementById('spStatus');
+
+  if (!hostname || !sitePath || !listName) {
+    // Allow clearing the config entirely
+    if (!hostname && !sitePath && !listName) {
+      localStorage.removeItem(SP_CONFIG_KEY);
+      _repoReady = false;
+      document.getElementById('settingsBtn').style.color = 'rgba(255,255,255,.6)';
+      updateRepoBanner();
+      status.textContent = 'Shared repository disconnected.';
+      status.style.color = 'var(--muted)';
+      return;
+    }
+    status.textContent = 'Please fill in all three fields.';
+    status.style.color = 'var(--danger, #c0392b)';
+    return;
+  }
+
+  // Save config WITHOUT cached ids so resolveSiteAndList() looks them up fresh.
+  localStorage.setItem(SP_CONFIG_KEY, JSON.stringify({ hostname, sitePath, listName }));
+  status.textContent = 'Connecting…';
+  status.style.color = 'var(--muted)';
+  try {
+    await syncFromSharePoint();          // resolves ids, verifies access, loads data
+    _repoReady = true;
+    document.getElementById('settingsBtn').style.color = 'var(--orange)';
+    updateRepoBanner();
+    status.textContent = '✓ Connected. Loaded ' + getProfiles().length + ' profiles from the shared list.';
+    status.style.color = 'var(--success)';
+    if (document.getElementById('profilesView')?.style.display === 'block') {
+      try { renderProfilesTable(); } catch {}
+    }
+    setTimeout(closeSettings, 1200);
+  } catch (err) {
+    console.warn('Connect failed:', err);
+    status.textContent = '✗ Could not connect: ' + err.message;
+    status.style.color = 'var(--danger, #c0392b)';
+  }
 }
 
-async function postToSharePoint(profile) {
-  const url = localStorage.getItem('kmc_webhook_url');
-  if (!url) return;
-  // Flatten the profile into simple key/value pairs for Power Automate
-  const payload = {
-    companyName:          profile.companyName,
-    natureOfBusiness:     profile.natureOfBusiness,
-    projectedSeats:       profile.projectedSeats,
-    accountManager:       profile.accountManager,
-    sitesFloors:          (profile.sites||[]).map(e => e.floor ? `${e.site} – ${e.floor}` : e.site).join('; '),
-    headcount:            profile.headcount,
-    clientType:           profile.clientType,
-    isVip:                profile.isVip,
-    existingClient:       profile.existingClient ? 'Yes' : 'No',
-    ospLink:              profile.ospLink,
-    leadSource:           profile.leadSource,
-    brokerName:           profile.brokerName,
-    leadSourceDetails:    profile.leadSourceDetails,
-    campaignTypes:        (profile.campaignTypes||[]).join(', '),
-    clientRepName:        profile.clientRepName,
-    clientRepDesignation: profile.clientRepDesignation,
-    clientRepPhone:       profile.clientRepPhone,
-    clientRepEmail:       profile.clientRepEmail,
-    clientRepRemarks:     profile.clientRepRemarks,
-    techContactName:      profile.techContactName,
-    techContactPosition:  profile.techContactPosition,
-    techContactPhone:     profile.techContactPhone,
-    techContactRemarks:   profile.techContactRemarks,
-    reqOverview:          profile.reqOverview,
-    hwDeviceType:         profile.hwDeviceType,
-    hwOwnership:          profile.hwOwnership,
-    hardwareRemarks:      profile.hardwareRemarks,
-    portsNeeded:          (profile.portsNeeded||[]).join(', '),
-    ownNetwork:           profile.ownNetwork ? 'Yes' : 'No',
-    ownNetworkDetails:    profile.ownNetworkDetails,
-    dedicatedSsid:        profile.dedicatedSsid ? 'Yes' : 'No',
-    ssidName:             profile.ssidName,
-    ssidPassword:         profile.ssidPassword,
-    maintenanceWindow:    profile.maintenanceWindow,
-    phoneType:            [profile.phoneHardphone && 'Hardphone', profile.phoneSoftphone && 'Softphone'].filter(Boolean).join(', '),
-    networkPOI:           profile.networkPOI,
-    networkAccessRules:   profile.networkAccessRules,
-    networkRemarks:       profile.networkRemarks,
-    platforms:            (profile.platforms||[]).map(p => p.url ? `${p.name} (${p.url})` : p.name).join(', '),
-    platformRemarks:      profile.voiceRemarks,
-    allowedList:          (profile.allowedList||[]).join(', '),
-    forbiddenList:        (profile.forbiddenList||[]).join(', '),
-    webFilterRemarks:     profile.webFilterRemarks,
-    btsRemarks:           profile.btsRemarks,
-    additionalReq:        profile.networkAdditionalReq,
-    savedAt:              profile.savedAt,
-  };
+// Manual refresh button on the Profiles tab.
+async function refreshRepo() {
+  if (!spConfigured()) { showToast('Shared repository is not set up', true); return; }
+  showToast('Refreshing from shared repository…');
   try {
-    await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+    await syncFromSharePoint();
+    renderProfilesTable();
+    updateRepoBanner();
+    showToast('✓ Up to date — ' + getProfiles().length + ' profiles');
   } catch (err) {
-    console.warn('SharePoint webhook failed:', err);
-    showToast('⚠ SharePoint sync failed — profile saved locally', true);
+    updateRepoBanner(err.message);
+    showToast('⚠ Could not refresh from the shared repository', true);
   }
 }
 // ────────────────────────────────────────────────────────────────────────────
@@ -1685,11 +1987,12 @@ if (localStorage.getItem(DRAFT_KEY)) {
 
 updateProgress();
 
-// Restore gear icon colour if webhook already configured
-if (localStorage.getItem('kmc_webhook_url')) {
+// Restore gear icon colour if the shared repository is already configured
+if (spConfigured()) {
   const btn = document.getElementById('settingsBtn');
   if (btn) btn.style.color = 'var(--orange)';
 }
+updateRepoBanner();
 
 // ── Import from Excel template ────────────────────────────────────────────────
 function importTemplate(input) {
@@ -1831,6 +2134,13 @@ function switchTab(tab) {
     const counter = document.getElementById('profileCount');
     if (counter) counter.textContent = count ? `(${count} saved)` : '(none saved)';
     try { renderProfilesTable(); } catch(e) { console.error('renderProfilesTable error:', e); }
+    updateRepoBanner();
+    // Pull the latest shared data in the background, then repaint.
+    if (spConfigured()) {
+      syncFromSharePoint()
+        .then(() => { _repoReady = true; updateRepoBanner(); renderProfilesTable(); })
+        .catch(err => updateRepoBanner(err.message));
+    }
   }
 }
 
@@ -1892,9 +2202,18 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function deleteProfile(idx) {
+async function deleteProfile(idx) {
   const p = _filteredProfiles[idx];
-  if (!confirm(`Delete profile for "${p.companyName}"? This cannot be undone.`)) return;
+  if (!confirm(`Delete profile for "${p.companyName}"? This removes it for everyone and cannot be undone.`)) return;
+  if (spConfigured() && p.spItemId) {
+    try {
+      await deleteFromSharePoint(p.spItemId);
+    } catch (err) {
+      console.warn('Shared delete failed:', err);
+      showToast('⚠ Could not delete from the shared repository — nothing was removed', true);
+      return;
+    }
+  }
   const all = getProfiles();
   const realIdx = all.findIndex(x => x.id === p.id);
   if (realIdx > -1) { all.splice(realIdx, 1); saveProfiles(all); }
@@ -1912,6 +2231,16 @@ function openDetail(idx) {
 
   const sites = (p.sites||[]).map(e => e.floor ? `${e.site} — ${e.floor}` : e.site).join('; ');
   const platforms = (p.platforms||[]).map(pl => pl.url ? `${pl.name} (${pl.url})` : pl.name).join(', ');
+
+  // Attachments — links to the shared copies in SharePoint
+  const fileLinks = (obj) => Object.values(obj || {}).map(f => f.webUrl
+    ? `<a href="${esc(f.webUrl)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:5px;margin:3px 8px 3px 0;padding:5px 10px;background:#f2f5f9;border-radius:6px;font-size:13px;text-decoration:none;color:var(--navy)">📎 ${esc(f.name)}</a>`
+    : `<span style="display:inline-flex;align-items:center;gap:5px;margin:3px 8px 3px 0;padding:5px 10px;background:#f7f7f7;border-radius:6px;font-size:13px;color:var(--muted)">📎 ${esc(f.name)} <em style="font-size:11px">(on uploader’s computer)</em></span>`
+  ).join('');
+  const allAttach = fileLinks(p.networkDiagrams) + fileLinks(p.networkAdditionalFiles) + fileLinks(p.attachments);
+  const attachSection = allAttach
+    ? `<div class="detail-group"><h4>Attachments</h4><div style="display:flex;flex-wrap:wrap">${allAttach}</div></div>`
+    : '';
 
   document.getElementById('detailModalBody').innerHTML = `
     <div class="detail-group">
@@ -1994,6 +2323,7 @@ function openDetail(idx) {
         ${field('Additional Requirements', p.networkAdditionalReq, true)}
       </div>
     </div>
+    ${attachSection}
     <div style="font-size:12px;color:var(--muted);margin-top:8px">Saved: ${p.savedAt ? new Date(p.savedAt).toLocaleString() : '—'}</div>
   `;
 
