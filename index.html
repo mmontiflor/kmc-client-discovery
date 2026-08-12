@@ -1044,6 +1044,9 @@ function itemToProfile(item) {
   try { p = JSON.parse(f.ProfileJSON || '{}'); } catch {}
   p.spItemId = item.id;               // needed for later update / delete
   p.id = p.id || f.ProfileId || item.id;
+  p.savedBy = p.savedBy || f.SavedBy || '';           // who last saved it
+  if (!p.savedAt && f.SavedAt) p.savedAt = f.SavedAt;  // when it was last saved
+  p.spWebUrl = item.webUrl || p.spWebUrl || '';        // link to the item in SharePoint
   return p;
 }
 
@@ -1665,6 +1668,7 @@ function saveProfile(e) {
   const profile = {
     id: editingProfileId || Date.now().toString(),
     savedAt: new Date().toISOString(),
+    savedBy: (msalInstance.getActiveAccount()?.username) || '',
     // Company
     companyName: v('companyName'),
     natureOfBusiness: v('natureOfBusiness'),
@@ -2257,6 +2261,19 @@ function openDetail(idx) {
     ? `<div class="detail-group"><h4>Attachments</h4><div style="display:flex;flex-wrap:wrap">${allAttach}</div></div>`
     : '';
 
+  // "Last edited by / on" + a one-click link to this record's SharePoint version history
+  const editedWhen = p.savedAt ? new Date(p.savedAt).toLocaleString() : '—';
+  const editedWho = p.savedBy ? ` by ${esc(p.savedBy)}` : '';
+  const spCfg = getSpConfig();
+  let historyLink = '';
+  if (p.spItemId && spCfg && spCfg.hostname && spCfg.sitePath && spCfg.listId) {
+    const base = 'https://' + spCfg.hostname + spCfg.sitePath.replace(/\/+$/, '');
+    const url = base + '/_layouts/15/Versions.aspx?list=' + encodeURIComponent('{' + spCfg.listId + '}') + '&ID=' + encodeURIComponent(p.spItemId);
+    historyLink = ` &nbsp;·&nbsp; <a href="${url}" target="_blank" rel="noopener" style="color:var(--orange);text-decoration:none;font-weight:600">🕑 View change history</a>`;
+  } else if (p.spWebUrl) {
+    historyLink = ` &nbsp;·&nbsp; <a href="${esc(p.spWebUrl)}" target="_blank" rel="noopener" style="color:var(--orange);text-decoration:none;font-weight:600">Open in SharePoint</a>`;
+  }
+
   document.getElementById('detailModalBody').innerHTML = `
     <div class="detail-group">
       <h4>Company Information</h4>
@@ -2339,7 +2356,7 @@ function openDetail(idx) {
       </div>
     </div>
     ${attachSection}
-    <div style="font-size:12px;color:var(--muted);margin-top:8px">Saved: ${p.savedAt ? new Date(p.savedAt).toLocaleString() : '—'}</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:8px">Last edited${editedWho} on ${editedWhen}${historyLink}</div>
   `;
 
   document.getElementById('detailModal').classList.add('open');
