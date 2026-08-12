@@ -607,23 +607,24 @@
         </div>
         <div class="section-body">
           <div class="form-grid">
-            <div class="form-group">
-              <label>Device Type</label>
-              <select id="hwDeviceType" onchange="updateProgress()">
-                <option value="">— select —</option>
-                <option>Desktop</option>
-                <option>Laptop</option>
-                <option>Both Desktop &amp; Laptop</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Ownership / Procurement</label>
-              <select id="hwOwnership" onchange="updateProgress()">
-                <option value="">— select —</option>
-                <option>Client Owned &amp; Purchased</option>
-                <option>Client Owned, KMC Purchased</option>
-                <option>KMC Leased</option>
-              </select>
+            <div class="form-group span-2">
+              <label>Devices <span class="optional">— add each device type with its ownership; click “+ Add” to list more than one</span></label>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <select id="hwDeviceType" style="flex:2;min-width:160px">
+                  <option value="">— device type —</option>
+                  <option>Desktop</option>
+                  <option>Laptop</option>
+                  <option>Both Desktop &amp; Laptop</option>
+                </select>
+                <select id="hwOwnership" style="flex:2;min-width:180px">
+                  <option value="">— ownership / procurement —</option>
+                  <option>Client Owned &amp; Purchased</option>
+                  <option>Client Owned, KMC Purchased</option>
+                  <option>KMC Leased</option>
+                </select>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="addHardware()">+ Add</button>
+              </div>
+              <div id="hardwareWrap" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;min-height:28px"></div>
             </div>
             <div class="form-group span-2">
               <label>Hardware Requirements / Remarks</label>
@@ -1308,6 +1309,49 @@ function renderSiteFloors() {
     </span>`).join('');
 }
 
+// ── Hardware: multiple device entries (device type + ownership) ───────────────
+const hardwareItems = []; // array of { deviceType, ownership }
+
+// Return a profile's hardware as an array, tolerating older records that stored single scalars.
+function getHardwareList(p) {
+  if (Array.isArray(p.hardware) && p.hardware.length) return p.hardware;
+  if (p.hwDeviceType || p.hwOwnership) return [{ deviceType: p.hwDeviceType || '', ownership: p.hwOwnership || '' }];
+  return [];
+}
+function addHardware() {
+  const deviceType = document.getElementById('hwDeviceType').value;
+  const ownership = document.getElementById('hwOwnership').value;
+  if (!deviceType && !ownership) return;               // nothing chosen
+  if (hardwareItems.some(e => e.deviceType === deviceType && e.ownership === ownership)) return; // no dupes
+  hardwareItems.push({ deviceType, ownership });
+  renderHardware();
+  document.getElementById('hwDeviceType').value = '';
+  document.getElementById('hwOwnership').value = '';
+  updateProgress();
+}
+function removeHardware(i) {
+  hardwareItems.splice(i, 1);
+  renderHardware();
+  updateProgress();
+}
+// If the user picked device/ownership but didn't click "+ Add", capture it on save so nothing is lost.
+function commitPendingHardware() {
+  const deviceType = document.getElementById('hwDeviceType')?.value || '';
+  const ownership = document.getElementById('hwOwnership')?.value || '';
+  if ((deviceType || ownership) && !hardwareItems.some(e => e.deviceType === deviceType && e.ownership === ownership)) {
+    hardwareItems.push({ deviceType, ownership });
+  }
+}
+function renderHardware() {
+  const wrap = document.getElementById('hardwareWrap');
+  if (!wrap) return;
+  wrap.innerHTML = hardwareItems.map((e, i) => `
+    <span style="display:inline-flex;align-items:center;gap:5px;background:var(--light);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:13px;font-weight:600;color:var(--navy)">
+      ${esc(e.deviceType || '—')}${e.ownership ? `<span style="font-weight:400;color:var(--muted)"> · ${esc(e.ownership)}</span>` : ''}
+      <button type="button" onclick="removeHardware(${i})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;line-height:1;padding:0 2px">×</button>
+    </span>`).join('');
+}
+
 // Required fields for progress
 const REQUIRED = ['companyName','natureOfBusiness','projectedSeats','accountManager','clientRepName','reqOverview'];
 
@@ -1490,7 +1534,7 @@ function saveDraft() {
     'headcount','clientType','isVip','ospLink','leadSource','brokerName','leadSourceDetails',
     'clientRepName','clientRepDesignation','clientRepPhone','clientRepEmail','clientRepRemarks',
     'techContactName','techContactPosition','techContactPhone','techContactRemarks',
-    'reqOverview','hwDeviceType','hwOwnership','hardwareRemarks',
+    'reqOverview','hardwareRemarks',
     'networkPOI','networkAccessRules','networkRemarks','maintenanceWindow',
     'ssidName','ssidPassword','ownNetworkDetails','voiceRemarks',
     'webFilterRemarks','btsRemarks','networkAdditionalReq'];
@@ -1505,6 +1549,7 @@ function saveDraft() {
   draft._tags = { allowed: [...tags.allowed], forbidden: [...tags.forbidden], ports: [...tags.ports] };
   draft._platforms = [...tags.platforms];
   draft._siteFloors = [...siteFloors];
+  draft._hardware = [...hardwareItems];
   draft._campaigns = [...document.querySelectorAll('.campaign-chip.selected')].map(el => el.textContent);
 
   localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
@@ -1533,6 +1578,7 @@ function restoreDraft() {
     }
     if (draft._platforms) { tags.platforms = draft._platforms; renderPlatformTags(); }
     if (draft._siteFloors) { siteFloors.length = 0; draft._siteFloors.forEach(e => siteFloors.push(e)); renderSiteFloors(); }
+    if (draft._hardware) { hardwareItems.length = 0; draft._hardware.forEach(e => hardwareItems.push(e)); renderHardware(); }
     if (draft._campaigns) {
       document.querySelectorAll('.campaign-chip').forEach(el => {
         el.classList.toggle('selected', draft._campaigns.includes(el.textContent));
@@ -1600,7 +1646,7 @@ function editProfile(idx) {
     'headcount','clientType','isVip','ospLink','leadSource','brokerName','leadSourceDetails',
     'clientRepName','clientRepDesignation','clientRepPhone','clientRepEmail','clientRepRemarks',
     'techContactName','techContactPosition','techContactPhone','techContactRemarks',
-    'reqOverview','hwDeviceType','hwOwnership','hardwareRemarks',
+    'reqOverview','hardwareRemarks',
     'ownNetworkDetails','ssidName','ssidPassword','maintenanceWindow',
     'networkPOI','networkAccessRules','networkRemarks','voiceRemarks',
     'webFilterRemarks','btsRemarks','networkAdditionalReq'];
@@ -1634,6 +1680,11 @@ function editProfile(idx) {
   siteFloors.length = 0;
   (p.sites||[]).forEach(s => siteFloors.push({...s}));
   renderSiteFloors();
+
+  // Hardware devices (list; falls back to legacy single-value records)
+  hardwareItems.length = 0;
+  getHardwareList(p).forEach(h => hardwareItems.push({...h}));
+  renderHardware();
 
   // Existing attachments (already uploaded to SharePoint) — show them, keep their refs.
   ['networkDiagrams','networkAdditionalFiles','attachments'].forEach(k => Object.keys(_fileBlobs[k]).forEach(n => delete _fileBlobs[k][n]));
@@ -1671,6 +1722,7 @@ function cancelEdit() {
 // Save
 function saveProfile(e) {
   e.preventDefault();
+  commitPendingHardware();   // capture a device/ownership picked but not yet "+ Added"
   const profile = {
     id: editingProfileId || Date.now().toString(),
     savedAt: new Date().toISOString(),
@@ -1726,8 +1778,7 @@ function saveProfile(e) {
     networkAdditionalReq: v('networkAdditionalReq'),
     networkAdditionalFiles: { ...networkAdditionalFiles },
     // Hardware
-    hwDeviceType: v('hwDeviceType'),
-    hwOwnership: v('hwOwnership'),
+    hardware: [...hardwareItems],
     hardwareRemarks: v('hardwareRemarks'),
     // Build to Suit
     btsRemarks: v('btsRemarks'),
@@ -1817,6 +1868,7 @@ function clearForm() {
   toggleOwnNetwork(); toggleSsidFields();
   tags.platforms = []; renderPlatformTags();
   siteFloors.length = 0; renderSiteFloors();
+  hardwareItems.length = 0; renderHardware();
   document.getElementById('floor').innerHTML = '<option value="">Select site first…</option>';
   Object.keys(networkFiles).forEach(k => delete networkFiles[k]); renderNetworkPreviews();
   Object.keys(networkAdditionalFiles).forEach(k => delete networkAdditionalFiles[k]); renderNetworkAdditionalPreviews();
@@ -1941,7 +1993,8 @@ function profileToGroups(p) {
     ]],
     ['Requirements Overview', [ ['Overview', p.reqOverview] ]],
     ['Hardware', [
-      ['Device Type', p.hwDeviceType], ['Ownership / Procurement', p.hwOwnership], ['Remarks', p.hardwareRemarks],
+      ...getHardwareList(p).map(h => ['Device', h.ownership ? `${h.deviceType || '—'} — ${h.ownership}` : (h.deviceType || '')]),
+      ['Remarks', p.hardwareRemarks],
     ]],
     ['Network & Voice', [
       ['Ports Needed', j(p.portsNeeded)], ['Own Network', p.ownNetwork ? 'Yes' : 'No'],
@@ -2088,8 +2141,7 @@ function exportJSON(silent = false) {
     // Overview
     'Requirements Overview': p.reqOverview || '',
     // Hardware
-    'Device Type': p.hwDeviceType || '',
-    'Ownership / Procurement': p.hwOwnership || '',
+    'Hardware Devices': getHardwareList(p).map(h => h.ownership ? `${h.deviceType || '—'} (${h.ownership})` : (h.deviceType || '')).filter(Boolean).join('; '),
     'Hardware Remarks': p.hardwareRemarks || '',
     // Network & Voice
     'Ports Needed': (p.portsNeeded || []).join(', '),
@@ -2494,8 +2546,7 @@ function openDetail(idx) {
     <div class="detail-group">
       <h4>Hardware</h4>
       <div class="detail-grid">
-        ${field('Device Type', p.hwDeviceType)}
-        ${field('Ownership / Procurement', p.hwOwnership)}
+        ${field('Devices', getHardwareList(p).map(h => h.ownership ? `${h.deviceType||'—'} (${h.ownership})` : (h.deviceType||'')).filter(Boolean).join('; '), true)}
         ${field('Remarks', p.hardwareRemarks, true)}
       </div>
     </div>
