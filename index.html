@@ -307,6 +307,7 @@
         <div id="navUserName" style="font-family:'Karla',sans-serif;color:white;font-size:13px;font-weight:600"></div>
         <div id="navUserEmail" style="font-family:'Karla',sans-serif;color:rgba(255,255,255,.45);font-size:11px"></div>
       </div>
+      <button id="settingsBtn" onclick="openSettings()" title="Shared repository settings" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:5px;color:rgba(255,255,255,.6);font-size:16px;line-height:1;padding:5px 9px;cursor:pointer">⚙</button>
       <button onclick="signOut()" title="Sign out" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:5px;color:rgba(255,255,255,.7);font-family:'Karla',sans-serif;font-size:12px;padding:5px 10px;cursor:pointer">Sign out</button>
     </div>
   </div>
@@ -1827,7 +1828,7 @@ async function saveSettings() {
     if (!hostname && !sitePath && !listName) {
       localStorage.removeItem(SP_CONFIG_KEY);
       _repoReady = false;
-      document.getElementById('settingsBtn').style.color = 'rgba(255,255,255,.6)';
+      const sb0 = document.getElementById('settingsBtn'); if (sb0) sb0.style.color = 'rgba(255,255,255,.6)';
       updateRepoBanner();
       status.textContent = 'Shared repository disconnected.';
       status.style.color = 'var(--muted)';
@@ -1845,7 +1846,7 @@ async function saveSettings() {
   try {
     await syncFromSharePoint();          // resolves ids, verifies access, loads data
     _repoReady = true;
-    document.getElementById('settingsBtn').style.color = 'var(--orange)';
+    const sb1 = document.getElementById('settingsBtn'); if (sb1) sb1.style.color = 'var(--orange)';
     updateRepoBanner();
     status.textContent = '✓ Connected. Loaded ' + getProfiles().length + ' profiles from the shared list.';
     status.style.color = 'var(--success)';
