@@ -969,8 +969,22 @@ const LOCAL_ONLY_FIELDS = [];
 const ATTACH_FOLDER = 'Client Profile Attachments';   // auto-created in the site's Documents library
 let _repoReady = false;   // true once the shared list is reachable & configured
 
+// Built-in connection so EVERY user is connected automatically on sign-in — no per-user
+// setup. To point the form at a different site/list, edit these three values (or override
+// per-browser via the ⚙ gear, which takes precedence).
+const DEFAULT_SP_CONFIG = {
+  hostname: 'kmcsolutions.sharepoint.com',
+  sitePath: '/teams/ITlords',
+  listName: 'Client Profiles'
+};
+
 function getSpConfig() {
-  try { return JSON.parse(localStorage.getItem(SP_CONFIG_KEY) || 'null'); } catch { return null; }
+  // A per-browser override (set via the gear) wins; otherwise fall back to the built-in default.
+  try {
+    const stored = JSON.parse(localStorage.getItem(SP_CONFIG_KEY) || 'null');
+    if (stored && stored.hostname && stored.sitePath && stored.listName) return stored;
+  } catch {}
+  return { ...DEFAULT_SP_CONFIG };
 }
 function spConfigured() {
   const c = getSpConfig();
