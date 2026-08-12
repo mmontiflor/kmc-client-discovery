@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Karla:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
 <script src="https://alcdn.msauth.net/browser/2.38.2/js/msal-browser.min.js"></script>
 <style>
   :root {
@@ -877,7 +879,10 @@
       <h2>Client Profiles <span id="profileCount" style="font-size:14px;font-weight:400;color:var(--muted)"></span></h2>
       <input class="profiles-search" type="text" id="profileSearch" placeholder="Search by company, AM, client type…" oninput="filterProfiles()">
       <button class="btn btn-secondary btn-sm" onclick="refreshRepo()" title="Reload the shared repository">↻ Refresh</button>
-      <button class="btn btn-secondary btn-sm" onclick="exportJSON()">⬇ Export to Excel</button>
+      <span id="exportScope" style="font-size:12px;color:var(--muted);align-self:center"></span>
+      <button class="btn btn-secondary btn-sm" onclick="exportJSON()" title="Export to Excel spreadsheet">⬇ Excel</button>
+      <button class="btn btn-secondary btn-sm" onclick="exportPDF()" title="Export to PDF">⬇ PDF</button>
+      <button class="btn btn-secondary btn-sm" onclick="exportDOCX()" title="Export to Word document">⬇ Word</button>
     </div>
     <div id="repoBanner" style="display:none;font-size:13px;padding:10px 14px;border-radius:8px;margin-bottom:12px"></div>
     <div class="profiles-table-wrap">
@@ -1224,6 +1229,7 @@ function updateRepoBanner(errMsg) {
 
 const STORAGE_KEY = 'kmc_client_profiles';
 let _filteredProfiles = [];
+const _selectedIds = new Set();   // profile ids ticked for export
 const tags = { allowed: [], forbidden: [], ports: [], platforms: [] };
 const attachedFiles = {};
 const networkFiles = {};
@@ -1902,8 +1908,143 @@ function showToast(msg, isError = false) {
   setTimeout(() => t.className = 'toast', 3500);
 }
 
+// Which profiles an export should include: ticked rows if any, otherwise everything.
+function getExportData() {
+  const all = getProfiles();
+  return _selectedIds.size ? all.filter(p => _selectedIds.has(p.id)) : all;
+}
+
+// Full profile laid out as titled sections of [label, value] — used by PDF & Word.
+function profileToGroups(p) {
+  const j = a => (a || []).join(', ');
+  const fileNames = () => ['networkDiagrams','networkAdditionalFiles','attachments']
+    .flatMap(k => Object.values(p[k] || {}).map(f => ['File', f.webUrl ? `${f.name} — ${f.webUrl}` : f.name]));
+  return [
+    ['Company Information', [
+      ['Company Name', p.companyName], ['Nature of Business', p.natureOfBusiness],
+      ['Projected Seats', p.projectedSeats], ['Headcount', p.headcount],
+      ['Account Manager', p.accountManager], ['Client Type', p.clientType],
+      ['VIP', p.isVip], ['Existing Client', p.existingClient ? 'Yes' : 'No'],
+      ['Sites & Floors', (p.sites || []).map(e => e.floor ? `${e.site} — ${e.floor}` : e.site).join('; ')],
+      ['OSP Organization Link', p.ospLink], ['Lead Source', p.leadSource],
+      ['Broker Name', p.brokerName], ['Lead Source Details', p.leadSourceDetails],
+      ['Campaign Types', j(p.campaignTypes)],
+    ]],
+    ['Client Representative', [
+      ['Name', p.clientRepName], ['Designation', p.clientRepDesignation],
+      ['Phone', p.clientRepPhone], ['Email', p.clientRepEmail], ['Remarks', p.clientRepRemarks],
+    ]],
+    ['Technical Contact', [
+      ['Name', p.techContactName], ['Position', p.techContactPosition],
+      ['Phone', p.techContactPhone], ['Remarks', p.techContactRemarks],
+    ]],
+    ['Requirements Overview', [ ['Overview', p.reqOverview] ]],
+    ['Hardware', [
+      ['Device Type', p.hwDeviceType], ['Ownership / Procurement', p.hwOwnership], ['Remarks', p.hardwareRemarks],
+    ]],
+    ['Network & Voice', [
+      ['Ports Needed', j(p.portsNeeded)], ['Own Network', p.ownNetwork ? 'Yes' : 'No'],
+      ['Own Network Details', p.ownNetworkDetails], ['Dedicated SSID', p.dedicatedSsid ? 'Yes' : 'No'],
+      ['SSID Name', p.ssidName], ['SSID Password', p.ssidPassword], ['Maintenance Window', p.maintenanceWindow],
+      ['Phone Type', [p.phoneHardphone && 'Hardphone', p.phoneSoftphone && 'Softphone'].filter(Boolean).join(', ')],
+      ['Points of Interest', p.networkPOI], ['Custom Access Rules', p.networkAccessRules],
+      ['Network Remarks', p.networkRemarks],
+      ['Platforms / Applications', (p.platforms || []).map(pl => pl.url ? `${pl.name} (${pl.url})` : pl.name).join(', ')],
+      ['Platform Remarks', p.voiceRemarks],
+    ]],
+    ['Web Content Filtering', [
+      ['Allowed List', j(p.allowedList)], ['Forbidden List', j(p.forbiddenList)], ['Web Filter Remarks', p.webFilterRemarks],
+    ]],
+    ['Build to Suit & Additional', [
+      ['BTS Remarks', p.btsRemarks], ['Additional Requirements', p.networkAdditionalReq],
+    ]],
+    ['Attachments', fileNames()],
+  ];
+}
+
+function saveBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function _exportStamp() { return new Date().toISOString().slice(0, 10); }
+
+// ── PDF export (jsPDF) ────────────────────────────────────────────────────────
+function exportPDF() {
+  const data = getExportData();
+  if (!data.length) { showToast('No profiles to export', true); return; }
+  if (!window.jspdf || !window.jspdf.jsPDF) { showToast('PDF library not loaded — check your connection', true); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const pw = doc.internal.pageSize.getWidth(), ph = doc.internal.pageSize.getHeight();
+  const margin = 48, maxw = pw - margin * 2, NAVY = [15, 42, 74];
+  let y = margin;
+  const wrap = (text, x, yy, lh) => {
+    doc.splitTextToSize(String(text), maxw - (x - margin)).forEach(ln => {
+      if (yy > ph - margin) { doc.addPage(); yy = margin; }
+      doc.text(ln, x, yy); yy += lh;
+    });
+    return yy;
+  };
+  data.forEach((p, idx) => {
+    if (idx > 0) { doc.addPage(); y = margin; }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor(...NAVY);
+    y = wrap(p.companyName || '(Unnamed client)', margin, y, 22);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(130);
+    const meta = 'Last edited' + (p.savedBy ? ` by ${p.savedBy}` : '') + (p.savedAt ? ` on ${new Date(p.savedAt).toLocaleString()}` : '');
+    y = wrap(meta, margin, y + 2, 12) + 6;
+    profileToGroups(p).forEach(([heading, fields]) => {
+      const rows = fields.filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== '');
+      if (!rows.length) return;
+      if (y > ph - margin - 40) { doc.addPage(); y = margin; }
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(...NAVY);
+      y = wrap(heading, margin, y + 10, 15);
+      doc.setDrawColor(225); doc.line(margin, y - 4, pw - margin, y - 4); y += 4;
+      doc.setFontSize(10); doc.setTextColor(35);
+      rows.forEach(([label, value]) => {
+        doc.setFont('helvetica', 'bold');
+        y = wrap(label + ':', margin, y, 13);
+        doc.setFont('helvetica', 'normal');
+        y = wrap(String(value), margin + 12, y, 13) + 2;
+      });
+    });
+  });
+  doc.save('KMC_Client_Profiles_' + _exportStamp() + '.pdf');
+  showToast('✓ Exported ' + data.length + ' profile(s) to PDF');
+}
+
+// ── Word export (docx) ────────────────────────────────────────────────────────
+function exportDOCX() {
+  const data = getExportData();
+  if (!data.length) { showToast('No profiles to export', true); return; }
+  if (!window.docx) { showToast('Word library not loaded — check your connection', true); return; }
+  const D = window.docx;
+  const children = [];
+  data.forEach((p, idx) => {
+    if (idx > 0) children.push(new D.Paragraph({ children: [new D.PageBreak()] }));
+    children.push(new D.Paragraph({ text: p.companyName || '(Unnamed client)', heading: D.HeadingLevel.HEADING_1 }));
+    const meta = 'Last edited' + (p.savedBy ? ` by ${p.savedBy}` : '') + (p.savedAt ? ` on ${new Date(p.savedAt).toLocaleString()}` : '');
+    children.push(new D.Paragraph({ children: [new D.TextRun({ text: meta, italics: true, color: '888888', size: 18 })] }));
+    profileToGroups(p).forEach(([heading, fields]) => {
+      const rows = fields.filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== '');
+      if (!rows.length) return;
+      children.push(new D.Paragraph({ text: heading, heading: D.HeadingLevel.HEADING_2, spacing: { before: 200 } }));
+      rows.forEach(([label, value]) => children.push(new D.Paragraph({
+        children: [new D.TextRun({ text: label + ': ', bold: true }), new D.TextRun({ text: String(value) })]
+      })));
+    });
+  });
+  const doc = new D.Document({ sections: [{ children }] });
+  D.Packer.toBlob(doc).then(blob => {
+    saveBlob(blob, 'KMC_Client_Profiles_' + _exportStamp() + '.docx');
+    showToast('✓ Exported ' + data.length + ' profile(s) to Word');
+  }).catch(e => { console.error(e); showToast('Word export failed', true); });
+}
+
 function exportJSON(silent = false) {
-  const data = getProfiles();
+  const data = getExportData();
   if (!data.length) { showToast('No profiles to export', true); return; }
 
   const rows = data.map(p => ({
@@ -2192,7 +2333,9 @@ function renderProfilesTable() {
       p.isVip === 'Yes' ? '<span class="badge badge-vip">VIP</span>' : '',
       p.existingClient ? '<span class="badge badge-existing">Existing</span>' : '<span class="badge badge-new">New</span>',
     ].filter(Boolean).join(' ');
+    const checked = _selectedIds.has(p.id) ? 'checked' : '';
     return `<tr>
+      <td style="text-align:center"><input type="checkbox" class="rowchk" ${checked} onchange="toggleRowSelect('${esc(String(p.id)).replace(/'/g,"\\'")}', this.checked)" onclick="event.stopPropagation()"></td>
       <td><div class="company-name">${esc(p.companyName||'—')}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${esc(p.natureOfBusiness||'')}</div></td>
       <td>${esc(p.accountManager||'—')}</td>
       <td>${esc(p.clientType||'—')}</td>
@@ -2207,15 +2350,38 @@ function renderProfilesTable() {
     </tr>`;
   }).join('');
 
+  const allSelected = _filteredProfiles.length && _filteredProfiles.every(p => _selectedIds.has(p.id));
   container.innerHTML = `<table class="profiles-table">
     <thead><tr>
+      <th style="text-align:center"><input type="checkbox" title="Select all" ${allSelected ? 'checked' : ''} onchange="toggleSelectAll(this.checked)"></th>
       <th>Company</th><th>Account Manager</th><th>Client Type</th><th>Seats</th><th>Status</th><th>Saved</th><th></th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
+  updateExportButton();
 }
 
 function filterProfiles() { renderProfilesTable(); }
+
+// ── Row selection for export ──────────────────────────────────────────────────
+function toggleRowSelect(id, checked) {
+  if (checked) _selectedIds.add(id); else _selectedIds.delete(id);
+  // refresh the header "select all" state + export button without a full re-render
+  const allSelected = _filteredProfiles.length && _filteredProfiles.every(p => _selectedIds.has(p.id));
+  const head = document.querySelector('.profiles-table thead input[type=checkbox]');
+  if (head) head.checked = allSelected;
+  updateExportButton();
+}
+function toggleSelectAll(checked) {
+  _filteredProfiles.forEach(p => { if (checked) _selectedIds.add(p.id); else _selectedIds.delete(p.id); });
+  renderProfilesTable();
+}
+function updateExportButton() {
+  const el = document.getElementById('exportScope');
+  if (!el) return;
+  const n = _selectedIds.size;
+  el.textContent = n ? `Exporting ${n} selected →` : 'Exporting all →';
+}
 
 function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
