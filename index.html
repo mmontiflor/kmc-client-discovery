@@ -890,6 +890,16 @@
       <button class="btn btn-secondary btn-sm" onclick="exportDOCX()" title="Export to Word document">⬇ Word</button>
     </div>
     <div id="repoBanner" style="display:none;font-size:13px;padding:10px 14px;border-radius:8px;margin-bottom:12px"></div>
+    <div id="profileFilters" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px">
+      <span style="font-size:12px;color:var(--muted);font-weight:600">Filter:</span>
+      <select id="filterAM" onchange="filterProfiles()" style="font-size:13px;padding:5px 8px;border:1px solid var(--border);border-radius:6px"><option value="">All Account Managers</option></select>
+      <select id="filterClientType" onchange="filterProfiles()" style="font-size:13px;padding:5px 8px;border:1px solid var(--border);border-radius:6px"><option value="">All Client Types</option></select>
+      <select id="filterSite" onchange="filterProfiles()" style="font-size:13px;padding:5px 8px;border:1px solid var(--border);border-radius:6px"><option value="">All Sites</option></select>
+      <select id="filterStatus" onchange="filterProfiles()" style="font-size:13px;padding:5px 8px;border:1px solid var(--border);border-radius:6px">
+        <option value="">Any Status</option><option value="vip">VIP only</option><option value="existing">Existing only</option><option value="new">New only</option>
+      </select>
+      <button class="btn btn-secondary btn-sm" onclick="clearFilters()" title="Clear all filters and search">Clear filters</button>
+    </div>
     <div class="profiles-table-wrap">
       <div id="profilesTableContainer"></div>
     </div>
@@ -1238,6 +1248,7 @@ function updateRepoBanner(errMsg) {
 const STORAGE_KEY = 'kmc_client_profiles';
 let _filteredProfiles = [];
 const _selectedIds = new Set();   // profile ids ticked for export
+const _sort = { key: '', dir: 1 };  // column sort state for the profiles table
 const tags = { allowed: [], forbidden: [], ports: [], platforms: [] };
 const attachedFiles = {};
 const networkFiles = {};
@@ -2487,15 +2498,44 @@ function switchTab(tab) {
 
 // ── Profiles table ────────────────────────────────────────────────────────────
 function renderProfilesTable() {
+  populateFilterOptions();
   const q = (document.getElementById('profileSearch')?.value || '').toLowerCase();
+  const fAM = document.getElementById('filterAM')?.value || '';
+  const fCT = document.getElementById('filterClientType')?.value || '';
+  const fSite = document.getElementById('filterSite')?.value || '';
+  const fStatus = document.getElementById('filterStatus')?.value || '';
   const all = getProfiles();
-  _filteredProfiles = q ? all.filter(p =>
-    (p.companyName||'').toLowerCase().includes(q) ||
-    (p.accountManager||'').toLowerCase().includes(q) ||
-    (p.clientType||'').toLowerCase().includes(q) ||
-    (p.natureOfBusiness||'').toLowerCase().includes(q) ||
-    (p.leadSource||'').toLowerCase().includes(q)
-  ) : all;
+  let list = all.filter(p => {
+    if (q && !(
+      (p.companyName||'').toLowerCase().includes(q) ||
+      (p.accountManager||'').toLowerCase().includes(q) ||
+      (p.clientType||'').toLowerCase().includes(q) ||
+      (p.natureOfBusiness||'').toLowerCase().includes(q) ||
+      (p.leadSource||'').toLowerCase().includes(q) ||
+      (p.sites||[]).some(s => (s.site||'').toLowerCase().includes(q))
+    )) return false;
+    if (fAM && (p.accountManager||'') !== fAM) return false;
+    if (fCT && (p.clientType||'') !== fCT) return false;
+    if (fSite && !(p.sites||[]).some(s => s.site === fSite)) return false;
+    if (fStatus === 'vip' && p.isVip !== 'Yes') return false;
+    if (fStatus === 'existing' && !p.existingClient) return false;
+    if (fStatus === 'new' && p.existingClient) return false;
+    return true;
+  });
+  // Sort by the clicked column, if any.
+  if (_sort.key) {
+    const acc = {
+      company: p => (p.companyName||'').toLowerCase(),
+      site: p => (p.sites||[]).map(s => s.site).join('; ').toLowerCase(),
+      am: p => (p.accountManager||'').toLowerCase(),
+      clientType: p => (p.clientType||'').toLowerCase(),
+      seats: p => parseInt(p.projectedSeats, 10) || 0,
+      status: p => (p.isVip === 'Yes' ? '0' : '1') + (p.existingClient ? '0' : '1'),
+      added: p => { const t = Date.parse(p.createdAt); return isNaN(t) ? 0 : t; },
+    }[_sort.key];
+    if (acc) list.sort((a, b) => { const x = acc(a), y = acc(b); return x < y ? -_sort.dir : x > y ? _sort.dir : 0; });
+  }
+  _filteredProfiles = list;
 
   const counter = document.getElementById('profileCount');
   if (counter) counter.textContent = all.length ? `(${all.length})` : '';
@@ -2517,9 +2557,11 @@ function renderProfilesTable() {
       p.existingClient ? '<span class="badge badge-existing">Existing</span>' : '<span class="badge badge-new">New</span>',
     ].filter(Boolean).join(' ');
     const checked = _selectedIds.has(p.id) ? 'checked' : '';
+    const siteStr = (p.sites||[]).map(e => e.floor ? `${e.site} (${e.floor})` : e.site).filter(Boolean).join('; ');
     return `<tr>
       <td style="text-align:center"><input type="checkbox" class="rowchk" ${checked} onchange="toggleRowSelect('${esc(String(p.id)).replace(/'/g,"\\'")}', this.checked)" onclick="event.stopPropagation()"></td>
       <td><div class="company-name">${esc(p.companyName||'—')}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${esc(p.natureOfBusiness||'')}</div></td>
+      <td style="font-size:13px" title="${esc(siteStr)}">${esc(siteStr || '—')}</td>
       <td>${esc(p.accountManager||'—')}</td>
       <td>${esc(p.clientType||'—')}</td>
       <td>${esc(p.projectedSeats||'—')}</td>
@@ -2534,10 +2576,12 @@ function renderProfilesTable() {
   }).join('');
 
   const allSelected = _filteredProfiles.length && _filteredProfiles.every(p => _selectedIds.has(p.id));
+  const arrow = k => _sort.key === k ? (_sort.dir > 0 ? ' ▲' : ' ▼') : '';
+  const sh = (k, label) => `<th onclick="sortBy('${k}')" style="cursor:pointer;user-select:none;white-space:nowrap" title="Sort by ${label}">${label}${arrow(k)}</th>`;
   container.innerHTML = `<table class="profiles-table">
     <thead><tr>
       <th style="text-align:center"><input type="checkbox" title="Select all" ${allSelected ? 'checked' : ''} onchange="toggleSelectAll(this.checked)"></th>
-      <th>Company</th><th>Account Manager</th><th>Client Type</th><th>Seats</th><th>Status</th><th>Added</th><th></th>
+      ${sh('company','Company')}${sh('site','Site(s)')}${sh('am','Account Manager')}${sh('clientType','Client Type')}${sh('seats','Seats')}${sh('status','Status')}${sh('added','Added')}<th></th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
@@ -2545,6 +2589,33 @@ function renderProfilesTable() {
 }
 
 function filterProfiles() { renderProfilesTable(); }
+
+// Populate the filter dropdowns with the distinct values currently in the data.
+function populateFilterOptions() {
+  const all = getProfiles();
+  const fill = (id, values, allLabel) => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const cur = sel.value;
+    const opts = [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    sel.innerHTML = `<option value="">${allLabel}</option>` + opts.map(v => `<option${v === cur ? ' selected' : ''}>${esc(v)}</option>`).join('');
+    if (cur && !opts.includes(cur)) sel.value = '';
+  };
+  fill('filterAM', all.map(p => p.accountManager), 'All Account Managers');
+  fill('filterClientType', all.map(p => p.clientType), 'All Client Types');
+  fill('filterSite', all.flatMap(p => (p.sites || []).map(s => s.site)), 'All Sites');
+}
+
+function clearFilters() {
+  ['filterAM', 'filterClientType', 'filterSite', 'filterStatus'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const s = document.getElementById('profileSearch'); if (s) s.value = '';
+  renderProfilesTable();
+}
+
+function sortBy(key) {
+  if (_sort.key === key) _sort.dir = -_sort.dir; else { _sort.key = key; _sort.dir = 1; }
+  renderProfilesTable();
+}
 
 // ── Row selection for export ──────────────────────────────────────────────────
 function toggleRowSelect(id, checked) {
