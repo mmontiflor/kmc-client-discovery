@@ -1053,6 +1053,9 @@ function itemToProfile(item) {
   p.savedBy = p.savedBy || f.SavedBy || '';           // who last saved it
   if (!p.savedAt && f.SavedAt) p.savedAt = f.SavedAt;  // when it was last saved
   p.spWebUrl = item.webUrl || p.spWebUrl || '';        // link to the item in SharePoint
+  // "Added" stamp — fall back to SharePoint's native created info for older records.
+  p.createdAt = p.createdAt || item.createdDateTime || p.savedAt || '';
+  p.createdBy = p.createdBy || (item.createdBy && item.createdBy.user && (item.createdBy.user.email || item.createdBy.user.displayName)) || '';
   return p;
 }
 
@@ -1723,10 +1726,14 @@ function cancelEdit() {
 function saveProfile(e) {
   e.preventDefault();
   commitPendingHardware();   // capture a device/ownership picked but not yet "+ Added"
+  const now = new Date().toISOString();
+  const me = (msalInstance.getActiveAccount()?.username) || '';
   const profile = {
     id: editingProfileId || Date.now().toString(),
-    savedAt: new Date().toISOString(),
-    savedBy: (msalInstance.getActiveAccount()?.username) || '',
+    savedAt: now,
+    savedBy: me,
+    createdAt: now,   // default for a NEW record; preserved from the original when editing (below)
+    createdBy: me,
     // Company
     companyName: v('companyName'),
     natureOfBusiness: v('natureOfBusiness'),
@@ -1785,11 +1792,18 @@ function saveProfile(e) {
     attachments: { ...attachedFiles }
   };
 
+  // Preserve the ORIGINAL "added" stamp from an existing record we're replacing.
+  const carryCreated = existing => {
+    if (!existing) return;
+    profile.createdAt = existing.createdAt || existing.savedAt || profile.createdAt;
+    profile.createdBy = existing.createdBy || existing.savedBy || profile.createdBy;
+  };
+
   const profiles = getProfiles();
   if (editingProfileId) {
     // Update existing profile — carry over the SharePoint item id so we PATCH it
     const idx = profiles.findIndex(p => p.id === editingProfileId);
-    if (idx > -1) { profile.spItemId = profiles[idx].spItemId; profiles[idx] = profile; } else profiles.unshift(profile);
+    if (idx > -1) { profile.spItemId = profiles[idx].spItemId; carryCreated(profiles[idx]); profiles[idx] = profile; } else profiles.unshift(profile);
     editingProfileId = null;
     const banner = document.getElementById('editBanner');
     if (banner) banner.style.display = 'none';
@@ -1799,6 +1813,7 @@ function saveProfile(e) {
     if (exists > -1) {
       if (!confirm(`A profile for "${profile.companyName}" already exists. Overwrite it?`)) return;
       profile.spItemId = profiles[exists].spItemId;
+      carryCreated(profiles[exists]);
       profiles[exists] = profile;
     } else {
       profiles.unshift(profile);
@@ -2047,8 +2062,10 @@ function exportPDF() {
     doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor(...NAVY);
     y = wrap(p.companyName || '(Unnamed client)', margin, y, 22);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(130);
+    const added = 'Added' + (p.createdBy ? ` by ${p.createdBy}` : '') + (p.createdAt ? ` on ${new Date(p.createdAt).toLocaleString()}` : '');
     const meta = 'Last edited' + (p.savedBy ? ` by ${p.savedBy}` : '') + (p.savedAt ? ` on ${new Date(p.savedAt).toLocaleString()}` : '');
-    y = wrap(meta, margin, y + 2, 12) + 6;
+    y = wrap(added, margin, y + 2, 12);
+    y = wrap(meta, margin, y, 12) + 6;
     profileToGroups(p).forEach(([heading, fields]) => {
       const rows = fields.filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== '');
       if (!rows.length) return;
@@ -2087,7 +2104,9 @@ function exportDOCX() {
   data.forEach((p, idx) => {
     if (idx > 0) children.push(new D.Paragraph({ children: [new D.PageBreak()] }));
     children.push(new D.Paragraph({ text: p.companyName || '(Unnamed client)', heading: D.HeadingLevel.HEADING_1 }));
+    const added = 'Added' + (p.createdBy ? ` by ${p.createdBy}` : '') + (p.createdAt ? ` on ${new Date(p.createdAt).toLocaleString()}` : '');
     const meta = 'Last edited' + (p.savedBy ? ` by ${p.savedBy}` : '') + (p.savedAt ? ` on ${new Date(p.savedAt).toLocaleString()}` : '');
+    children.push(new D.Paragraph({ children: [new D.TextRun({ text: added, italics: true, color: '888888', size: 18 })] }));
     children.push(new D.Paragraph({ children: [new D.TextRun({ text: meta, italics: true, color: '888888', size: 18 })] }));
     profileToGroups(p).forEach(([heading, fields]) => {
       const rows = fields.filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== '');
@@ -2165,7 +2184,10 @@ function exportJSON(silent = false) {
     'BTS Remarks': p.btsRemarks || '',
     // Additional
     'Additional Requirements': p.networkAdditionalReq || '',
-    'Saved At': p.savedAt ? new Date(p.savedAt).toLocaleString() : '',
+    'Date Added': p.createdAt ? new Date(p.createdAt).toLocaleString() : '',
+    'Added By': p.createdBy || '',
+    'Last Edited At': p.savedAt ? new Date(p.savedAt).toLocaleString() : '',
+    'Last Edited By': p.savedBy || '',
   }));
 
   const ws = XLSX.utils.json_to_sheet(rows);
@@ -2391,8 +2413,10 @@ function renderProfilesTable() {
   }
 
   const rows = _filteredProfiles.map((p, i) => {
-    let saved = '—';
-    try { saved = p.savedAt ? new Date(p.savedAt).toLocaleDateString(undefined, {month:'short',day:'numeric',year:'numeric'}) : '—'; } catch {}
+    let added = '—';
+    try { added = p.createdAt ? new Date(p.createdAt).toLocaleDateString(undefined, {month:'short',day:'numeric',year:'numeric'}) : '—'; } catch {}
+    const addedByShort = p.createdBy ? p.createdBy.split('@')[0] : '';
+    const addedTitle = (p.createdBy ? 'Added by ' + p.createdBy : '') + (p.createdAt ? ' on ' + (()=>{ try { return new Date(p.createdAt).toLocaleString(); } catch { return ''; } })() : '');
     const badges = [
       p.isVip === 'Yes' ? '<span class="badge badge-vip">VIP</span>' : '',
       p.existingClient ? '<span class="badge badge-existing">Existing</span>' : '<span class="badge badge-new">New</span>',
@@ -2405,7 +2429,7 @@ function renderProfilesTable() {
       <td>${esc(p.clientType||'—')}</td>
       <td>${esc(p.projectedSeats||'—')}</td>
       <td>${badges}</td>
-      <td style="color:var(--muted);font-size:13px;white-space:nowrap">${saved}</td>
+      <td style="color:var(--muted);font-size:13px;white-space:nowrap" title="${esc(addedTitle)}">${added}${addedByShort ? `<div style="font-size:11px;color:var(--muted)">by ${esc(addedByShort)}</div>` : ''}</td>
       <td style="white-space:nowrap;display:flex;gap:6px;align-items:center">
         <button class="btn-view" onclick="openDetail(${i})">View</button>
         <button class="btn-view" onclick="editProfile(${i})" style="border-color:var(--orange);color:var(--orange)">Edit</button>
@@ -2418,7 +2442,7 @@ function renderProfilesTable() {
   container.innerHTML = `<table class="profiles-table">
     <thead><tr>
       <th style="text-align:center"><input type="checkbox" title="Select all" ${allSelected ? 'checked' : ''} onchange="toggleSelectAll(this.checked)"></th>
-      <th>Company</th><th>Account Manager</th><th>Client Type</th><th>Seats</th><th>Status</th><th>Saved</th><th></th>
+      <th>Company</th><th>Account Manager</th><th>Client Type</th><th>Seats</th><th>Status</th><th>Added</th><th></th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
@@ -2491,7 +2515,9 @@ function openDetail(idx) {
     ? `<div class="detail-group"><h4>Attachments</h4><div style="display:flex;flex-wrap:wrap">${allAttach}</div></div>`
     : '';
 
-  // "Last edited by / on" + a one-click link to this record's SharePoint version history
+  // "Added by / on" and "Last edited by / on" + a one-click link to version history
+  const addedWhen = p.createdAt ? new Date(p.createdAt).toLocaleString() : '—';
+  const addedWho = p.createdBy ? ` by ${esc(p.createdBy)}` : '';
   const editedWhen = p.savedAt ? new Date(p.savedAt).toLocaleString() : '—';
   const editedWho = p.savedBy ? ` by ${esc(p.savedBy)}` : '';
   const spCfg = getSpConfig();
@@ -2585,7 +2611,8 @@ function openDetail(idx) {
       </div>
     </div>
     ${attachSection}
-    <div style="font-size:12px;color:var(--muted);margin-top:8px">Last edited${editedWho} on ${editedWhen}${historyLink}</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:8px">Added${addedWho} on ${addedWhen}</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:2px">Last edited${editedWho} on ${editedWhen}${historyLink}</div>
   `;
 
   document.getElementById('detailModal').classList.add('open');
