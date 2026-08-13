@@ -866,9 +866,13 @@
 <!-- Sticky footer -->
 <div class="form-footer">
   <button type="button" class="btn btn-secondary" onclick="clearForm()">Clear Form</button>
-  <label class="btn btn-secondary" style="cursor:pointer" title="Import a filled client intake template">
+  <label class="btn btn-secondary" style="cursor:pointer" title="Import a single filled client intake template">
     📥 Import Template
     <input type="file" accept=".xlsx" style="display:none" onchange="importTemplate(this)">
+  </label>
+  <label class="btn btn-secondary" style="cursor:pointer" title="Import many clients at once from the bulk spreadsheet (one row per client)">
+    📊 Bulk Import
+    <input type="file" accept=".xlsx" style="display:none" onchange="importBulk(this)">
   </label>
   <button type="submit" form="discoveryForm" class="btn btn-primary">💾 Save Client Profile</button>
 </div>
@@ -2239,6 +2243,97 @@ if (spConfigured()) {
   if (btn) btn.style.color = 'var(--orange)';
 }
 updateRepoBanner();
+
+// ── Bulk import: one row per client (spreadsheet) ─────────────────────────────
+// Header labels below MUST match the columns in the bulk template exactly.
+function parseBulkRow(row) {
+  const g = h => String(row[h] ?? '').trim();
+  const yes = h => /^(y|yes|true|1|✓)$/i.test(g(h));
+  const list = h => g(h).split(/[;,]/).map(s => s.trim()).filter(Boolean);
+  const sites = g('Sites & Floors').split(/[;\n]/).map(e => {
+    const parts = e.split(/[-–—]+/).map(s => s.trim());
+    return parts[0] ? { site: parts[0], floor: parts[1] || '' } : null;
+  }).filter(Boolean);
+  const hardware = g('Hardware Devices').split(/[;\n]/).map(e => {
+    e = e.trim(); if (!e) return null;
+    const m = e.match(/^(.*?)\s*\((.*)\)\s*$/);   // "Laptop (KMC Leased)"
+    return m ? { deviceType: m[1].trim(), ownership: m[2].trim() } : { deviceType: e, ownership: '' };
+  }).filter(Boolean);
+  const phone = g('Phone Type').toLowerCase();
+  return {
+    companyName: g('Company Name'), natureOfBusiness: g('Nature of Business'),
+    projectedSeats: g('Projected Seats'), headcount: g('Headcount'),
+    accountManager: g('Account Manager'), clientType: g('Client Type'),
+    isVip: g('VIP'), existingClient: yes('Existing Client'),
+    sites, ospLink: g('OSP Organization Link'),
+    leadSource: g('Lead Source'), brokerName: g('Broker Name'), leadSourceDetails: g('Lead Source Details'),
+    campaignTypes: list('Campaign Types'),
+    clientRepName: g('Client Rep Name'), clientRepDesignation: g('Client Rep Designation'),
+    clientRepPhone: g('Client Rep Phone'), clientRepEmail: g('Client Rep Email'), clientRepRemarks: g('Client Rep Remarks'),
+    techContactName: g('Tech Contact Name'), techContactPosition: g('Tech Contact Position'),
+    techContactPhone: g('Tech Contact Phone'), techContactRemarks: g('Tech Contact Remarks'),
+    reqOverview: g('Requirements Overview'),
+    hardware, hardwareRemarks: g('Hardware Remarks'),
+    portsNeeded: list('Ports Needed'),
+    ownNetwork: yes('Own Network'), ownNetworkDetails: g('Own Network Details'),
+    dedicatedSsid: yes('Dedicated SSID'), ssidName: g('SSID Name'), ssidPassword: g('SSID Password'),
+    maintenanceWindow: g('Maintenance Window'),
+    phoneHardphone: phone.includes('hard') || phone.includes('both'),
+    phoneSoftphone: phone.includes('soft') || phone.includes('both'),
+    networkPOI: g('Points of Interest'), networkAccessRules: g('Custom Access Rules'), networkRemarks: g('Network Remarks'),
+    platforms: list('Platforms / Applications').map(n => ({ name: n, url: '' })),
+    voiceRemarks: g('Platform Remarks'),
+    allowedList: list('Allowed List'), forbiddenList: list('Forbidden List'), webFilterRemarks: g('Web Filter Remarks'),
+    btsRemarks: g('BTS Remarks'), networkAdditionalReq: g('Additional Requirements'),
+  };
+}
+
+function importBulk(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const sheetName = wb.SheetNames.includes('Profiles') ? 'Profiles' : wb.SheetNames[0];
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: '' });
+      const profiles = rows.map(parseBulkRow)
+        .filter(p => p.companyName && !/delete this row/i.test(p.companyName)); // skip blanks + the example row
+      if (!profiles.length) { showToast('No rows with a Company Name found — check the template', true); return; }
+      if (!confirm(`Import ${profiles.length} profile(s) into the shared repository?`)) return;
+
+      const now = new Date().toISOString();
+      const me = (msalInstance.getActiveAccount()?.username) || '';
+      let ok = 0, fail = 0;
+      for (let i = 0; i < profiles.length; i++) {
+        const p = profiles[i];
+        p.id = Date.now().toString() + '_' + i;
+        p.savedAt = now; p.savedBy = me; p.createdAt = now; p.createdBy = me;
+        // If this company already exists, update it in place and keep its original "added" stamp.
+        const all = getProfiles();
+        const existing = all.find(x => (x.companyName || '').toLowerCase() === p.companyName.toLowerCase());
+        if (existing) { p.spItemId = existing.spItemId; p.createdAt = existing.createdAt || now; p.createdBy = existing.createdBy || me; }
+        showToast(`Importing ${i + 1} of ${profiles.length}…`);
+        try {
+          if (spConfigured()) p.spItemId = await upsertToSharePoint(p);
+          const arr = getProfiles();
+          const idx = arr.findIndex(x => (x.companyName || '').toLowerCase() === p.companyName.toLowerCase());
+          if (idx > -1) arr[idx] = p; else arr.unshift(p);
+          saveProfiles(arr);
+          ok++;
+        } catch (err) { console.warn('Bulk row failed:', p.companyName, err); fail++; }
+      }
+      if (spConfigured()) { try { await syncFromSharePoint(); } catch {} }
+      try { renderProfilesTable(); } catch {}
+      showToast(`✓ Imported ${ok} profile(s)` + (fail ? `, ${fail} failed` : ''), fail > 0);
+    } catch (err) {
+      showToast('Bulk import failed — make sure you are using the bulk template', true);
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  input.value = '';
+}
 
 // ── Import from Excel template ────────────────────────────────────────────────
 function importTemplate(input) {
